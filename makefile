@@ -1,7 +1,5 @@
-NETWORK_NAME = nn.net
 _THIS       := $(realpath $(dir $(abspath $(lastword $(MAKEFILE_LIST)))))
 _ROOT       := $(_THIS)
-EVALFILE     = $(NETWORK_NAME)
 CXX         := g++
 TARGET      := Alexandria
 WARNINGS     = -Wall -Wcast-qual -Wextra -Wshadow -Wdouble-promotion -Wformat=2 -Wnull-dereference -Wlogical-op -Wold-style-cast -Wundef -pedantic
@@ -155,9 +153,6 @@ ifneq ($(findstring clang, $(CCX)),)
 	PGOGEN   = -fprofile-instr-generate
 	PGOUSE   = -fprofile-instr-use=alexandria.profdata
 endif
-
-# Add network name and Evalfile
-CXXFLAGS += -DNETWORK_NAME=\"$(NETWORK_NAME)\" -DEVALFILE=\"$(EVALFILE)\"
 
 SOURCES := $(wildcard src/*.cpp)
 OBJECTS := $(patsubst %.cpp,$(TMPDIR)/%.o,$(SOURCES))

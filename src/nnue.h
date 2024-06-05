@@ -22,14 +22,8 @@ constexpr int CHUNK_SIZE = 1;
 
 using NNUEIndices = std::pair<std::size_t, std::size_t>;
 
-struct Network {
-    int16_t FTWeights[NUM_INPUTS * L1_SIZE];
-    int16_t FTBiases [L1_SIZE];
-    int16_t L1Weights[L1_SIZE * 2 * OUTPUT_BUCKETS];
-    int16_t L1Biases [OUTPUT_BUCKETS];
-};
+#include "../net.h"
 
-extern Network net;
 struct Position;
 
 class NNUE {
@@ -48,7 +42,6 @@ public:
         }
     };
 
-    void init(const char *file);
     void accumulate(NNUE::Accumulator &board_accumulator, Position* pos);
     void update(NNUE::Accumulator *acc);
     void addSub(NNUE::Accumulator *new_acc, NNUE::Accumulator *prev_acc, NNUEIndices add, NNUEIndices sub);
