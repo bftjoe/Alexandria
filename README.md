@@ -1,13 +1,18 @@
- ## Building
+## About
+
+This is a fork of the Alexandria chess engine.
+
+## Building
 > [!WARNING]
 > Due to a bug present in older gcc versions compiling with versions < 12 isn't officially supported.
 ```bash
-$ git clone https://github.com/PGG106/Alexandria
-$ cd alexandria
+$ git clone https://github.com/bftjoe/Andrea
+$ cd Andrea
 $ make 
-$ ./Alexandria
+$ ./Andrea
 ```
- ## How to use the engine
+
+## How to use the engine
 
 The Universal Chess Interface (UCI) is a standard protocol used to communicate with
 a chess engine, and is the recommended way to do so for typical graphical user interfaces

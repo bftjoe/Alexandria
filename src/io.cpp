@@ -12,8 +12,6 @@
 
 #define FR2SQ(rank, file) (64 - ((file << 3) | rank))
 
-bool print_uci = false;
-bool tryhardmode = false;
 void PrintBitboard(const Bitboard bitboard) {
     // print offset
     std::cout << std::endl;
@@ -165,7 +163,7 @@ std::string Pick_color(int score) {
 }
 
 // Prints the uci output
-void PrintUciOutput(const int score, const int depth, const ThreadData* td, const UciOptions* options) {
+void PrintUciOutput(const int score, const int depth, const ThreadData* td) {
     // We are benching the engine and we don't care about the output
     if (tryhardmode)
         return;
@@ -176,15 +174,15 @@ void PrintUciOutput(const int score, const int depth, const ThreadData* td, cons
     uint64_t nps = nodes / (time + !time) * 1000;
     if (print_uci) {
         if (score > -MATE_SCORE && score < -MATE_FOUND)
-            std::cout << "info score mate " << -(score + MATE_SCORE) / 2 << " depth " << depth << " seldepth " << td->info.seldepth << " multipv " << options->MultiPV << " nodes " << nodes <<
+            std::cout << "info score mate " << -(score + MATE_SCORE) / 2 << " depth " << depth << " seldepth " << td->info.seldepth << " multipv " << MultiPV << " nodes " << nodes <<
             " nps " << nps << " time " << GetTimeMs() - td->info.starttime << " pv ";
 
         else if (score > MATE_FOUND && score < MATE_SCORE)
-            std::cout << "info score mate " << (MATE_SCORE - score) / 2 + 1 << " depth " << depth << " seldepth " << td->info.seldepth << " multipv " << options->MultiPV << " nodes " << nodes <<
+            std::cout << "info score mate " << (MATE_SCORE - score) / 2 + 1 << " depth " << depth << " seldepth " << td->info.seldepth << " multipv " << MultiPV << " nodes " << nodes <<
             " nps " << nps << " time " << GetTimeMs() - td->info.starttime << " pv ";
 
         else
-            std::cout << "info score cp " << score << " depth " << depth << " seldepth " << td->info.seldepth << " multipv " << options->MultiPV << " nodes " << nodes <<
+            std::cout << "info score cp " << score << " depth " << depth << " seldepth " << td->info.seldepth << " multipv " << MultiPV << " nodes " << nodes <<
             " nps " << nps << " hashfull "<< GetHashfull() << " time " << GetTimeMs() - td->info.starttime << " pv ";
 
         // loop over the moves within a PV line

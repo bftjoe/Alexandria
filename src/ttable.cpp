@@ -3,7 +3,7 @@
 #include <iostream>
 // This include breaks on non x86 target platforms
 #if defined(__INTEL_COMPILER) || defined(_MSC_VER)
-#include "xmmintrin.h"
+#include <xmmintrin.h>
 #endif
 
 TTable TT;
@@ -13,8 +13,8 @@ void ClearTT() {
     TT.age = 1;
 }
 
-void InitTT(uint64_t MB) {
-    const uint64_t hashSize = 0x100000 * MB;
+void InitTT() {
+    const uint64_t hashSize = 0x100000 * Hash;
     const uint64_t numBuckets = (hashSize / sizeof(TTBucket)) - 3;
     TT.pTable.resize(numBuckets);
     ClearTT();

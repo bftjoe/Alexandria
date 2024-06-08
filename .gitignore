@@ -432,12 +432,12 @@ FodyWeavers.xsd
 .vscode/settings.json
 
 # Others
-Alexandria*
+Andrea*
 perf.data
 perf.data.old
 
 /src/WSL2-Linux-Kernel
 
 /src/data1.txt
-/Alexandria.vcxproj
-/Alexandria.vcxproj.filters
+/Andrea.vcxproj
+/Andrea.vcxproj.filters

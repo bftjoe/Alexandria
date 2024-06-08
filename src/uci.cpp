@@ -197,13 +197,11 @@ void UciLoop(int argc, char** argv) {
                 return;
             }
         }
-        tryhardmode = true;
         StartBench(benchDepth);
         return;
     }
 
     bool parsed_position = false;
-    UciOptions uciOptions;
     ThreadData* td(new ThreadData());
     std::thread main_thread;
     state threads_state = Idle;
@@ -259,7 +257,7 @@ void UciLoop(int argc, char** argv) {
             // Start search in a separate thread
             if (search) {
                 threads_state = Search;
-                main_thread = std::thread(RootSearch, td->info.depth, td, &uciOptions);
+                main_thread = std::thread(RootSearch, td->info.depth, td);
             }
         }
 
@@ -270,13 +268,13 @@ void UciLoop(int argc, char** argv) {
                 continue;
             }
             if (tokens.at(2) == "Hash") {
-                uciOptions.Hash = std::stoi(tokens.at(4));
-                std::cout << "Set Hash to " << uciOptions.Hash << " MB\n";
-                InitTT(uciOptions.Hash);
+                //uciOptions.Hash = std::stoi(tokens.at(4));
+                std::cout << "Set Hash to " << Hash << " MB\n";
+                InitTT();
             }
             else if (tokens.at(2) == "Threads") {
-                uciOptions.Threads = std::stoi(tokens.at(4));
-                std::cout << "Set Threads to " << uciOptions.Threads << "\n";
+                //uciOptions.Threads = std::stoi(tokens.at(4));
+                std::cout << "Set Threads to " << Threads << "\n";
             }
 #ifdef TUNE
             else {
@@ -330,7 +328,7 @@ void UciLoop(int argc, char** argv) {
         else if (input == "uci") {
             // print engine info
             std::cout << "id name " << NAME << "\n";
-            std::cout << "id author Zuppa, CJ and Contributors\n";
+            std::cout << "id author Joseph Huang, Zuppa, CJ and Contributors\n";
             std::cout << "option name Hash type spin default 16 min 1 max 262144 \n";
             std::cout << "option name Threads type spin default 1 min 1 max 256 \n";
 #ifdef TUNE
@@ -346,8 +344,6 @@ void UciLoop(int argc, char** argv) {
             }
 #endif
             std::cout << "uciok\n";
-            // Set uci compatible output mode
-            print_uci = true;
         }
 
         // print board
@@ -373,9 +369,7 @@ void UciLoop(int argc, char** argv) {
         }
 
         else if (input == "bench") {
-            tryhardmode = true;
             StartBench();
-            tryhardmode = false;
         }
 
         else if (input == "see") {

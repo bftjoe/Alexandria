@@ -3,7 +3,11 @@
 // include the tune stuff here to give it global visibility
 #include "tune.h"
 
-#define NAME "Alexandria-7.0.3"
+constexpr uint64_t Hash = 64;
+constexpr int MultiPV = 1;
+constexpr int Threads = 1;
+
+#define NAME "Andrea-0.0.1"
 
 #define start_position "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
 

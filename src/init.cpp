@@ -221,7 +221,7 @@ void InitAll() {
     initHashKeys();
     InitReductions();
     // Init TT
-    InitTT(16);
+    InitTT();
     initCuckoo();
 }
 

@@ -197,9 +197,9 @@ Move GetBestMove(const PvTable* pvTable) {
 }
 
 // Starts the search process, this is ideally the point where you can start a multithreaded search
-void RootSearch(int depth, ThreadData* td, UciOptions* options) {
+void RootSearch(int depth, ThreadData* td) {
     // Init a thread_data object for each helper thread that doesn't have one already
-    for (int i = threads_data.size(); i < options->Threads - 1; i++) {
+    for (int i = threads_data.size(); i < Threads - 1; i++) {
         threads_data.emplace_back();
         threads_data.back().id = i + 1;
     }
@@ -211,11 +211,11 @@ void RootSearch(int depth, ThreadData* td, UciOptions* options) {
     }
 
     // Start Threads-1 helper search threads
-    for (int i = 0; i < options->Threads - 1; i++)
-        threads.emplace_back(SearchPosition, 1, depth, &threads_data[i], options);
+    for (int i = 0; i < Threads - 1; i++)
+        threads.emplace_back(SearchPosition, 1, depth, &threads_data[i]);
 
     // MainThread search
-    SearchPosition(1, depth, td, options);
+    SearchPosition(1, depth, td);
     // Stop helper threads before returning the best move
     StopHelperThreads();
     // Print final bestmove found
@@ -225,7 +225,7 @@ void RootSearch(int depth, ThreadData* td, UciOptions* options) {
 }
 
 // SearchPosition is the actual function that handles the search, it sets up the variables needed for the search, calls the AspirationWindowSearch function and handles the console output
-void SearchPosition(int startDepth, int finalDepth, ThreadData* td, UciOptions* options) {
+void SearchPosition(int startDepth, int finalDepth, ThreadData* td) {
     // variable used to store the score of the best move found by the search (while the move itself can be retrieved from the triangular PV table)
     int score = 0;
     int averageScore = SCORE_NONE;
@@ -266,7 +266,7 @@ void SearchPosition(int startDepth, int finalDepth, ThreadData* td, UciOptions* 
 
         // If it's the main thread print the uci output
         if (td->id == 0)
-            PrintUciOutput(score, currentDepth, td, options);
+            PrintUciOutput(score, currentDepth, td);
         // Seldepth should only be related to the current ID loop
         td->info.seldepth = 0;
     }

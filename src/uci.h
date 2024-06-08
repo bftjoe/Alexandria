@@ -6,15 +6,10 @@
 struct Position;
 struct SearchInfo;
 
-struct UciOptions {
-    uint64_t Hash = 16;
-    int MultiPV = 1;
-    int Threads = 1;
-};
 // Internal flag to decide if to pretty or ugly print search results
-extern bool print_uci;
+constexpr bool print_uci = true;
 // Internal flag to disable the output of search results when we don't want our speed to be limited by the console
-extern bool tryhardmode;
+constexpr bool tryhardmode = true;
 // Parse a move from algebraic notation to the internal value
 [[nodiscard]] int ParseMove(const std::string& move_string, Position* pos);
 // parse UCI "position" command

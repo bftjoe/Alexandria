@@ -44,7 +44,7 @@ constexpr uint8_t AGE_MASK = MAX_AGE - 1;
 
 void ClearTT();
 // Initialize an TT of size MB
-void InitTT(uint64_t MB);
+void InitTT();
 
 [[nodiscard]] bool ProbeTTEntry(const ZobristKey posKey, TTEntry* tte);
 
