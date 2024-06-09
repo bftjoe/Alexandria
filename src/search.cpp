@@ -426,7 +426,8 @@ int Negamax(int alpha, int beta, int depth, const bool cutNode, ThreadData* td, 
 
     // If we are in check or searching a singular extension we avoid pruning before the move loop
     if (inCheck || excludedMove) {
-        ss->staticEval = eval = SCORE_NONE;
+        eval = SCORE_NONE;
+        if (!excludedMove) ss->staticEval = SCORE_NONE;
         improving = false;
         goto moves_loop;
     }
@@ -553,7 +554,7 @@ moves_loop:
             &&  bestScore > -MATE_FOUND) {
 
             // lmrDepth is the current depth minus the reduction the move would undergo in lmr, this is helpful because it helps us discriminate the bad moves with more accuracy
-            const int lmrDepth = std::max(0, depth - reductions[isQuiet][std::min(depth, 63)][std::min(totalMoves, 63)] + moveHistory / 16384);
+            const int lmrDepth = std::max(0, depth - reductions[isQuiet][std::min(depth, 63)][std::min(totalMoves, 63)] + moveHistory / 8192);
 
             if (!skipQuiets) {
 
@@ -662,7 +663,7 @@ moves_loop:
                 depthReduction -= 1;
 
             // Decrease the reduction for moves that have a good history score and increase it for moves with a bad score
-            depthReduction -= moveHistory / 16384;
+            depthReduction -= moveHistory / 8192;
 
             // adjust the reduction so that we can't drop into Qsearch and to prevent extensions
             depthReduction = std::clamp(depthReduction, 0, newDepth - 1);
