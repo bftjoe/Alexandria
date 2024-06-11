@@ -1,9 +1,9 @@
 #include "threads.h"
 
 // global vector of search threads
-std::vector<std::thread> threads;
+FixedVector<std::thread, Threads> threads;
 // global vector of thread_datas
-std::vector<ThreadData> threads_data;
+FixedVector<ThreadData, Threads> threads_data;
 
 uint64_t GetTotalNodes() {
     uint64_t nodes = 0ULL;
