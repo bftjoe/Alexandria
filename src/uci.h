@@ -10,6 +10,7 @@ struct SearchInfo;
 constexpr bool print_uci = true;
 // Internal flag to disable the output of search results when we don't want our speed to be limited by the console
 constexpr bool tryhardmode = true;
+
 // Parse a move from algebraic notation to the internal value
 [[nodiscard]] int ParseMove(const std::string& move_string, Position* pos);
 // parse UCI "position" command
