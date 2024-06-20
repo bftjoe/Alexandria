@@ -222,17 +222,10 @@ void InitNewGame(ThreadData* td) {
     Position* pos = &td->pos;
     SearchData* sd = &td->sd;
     SearchInfo* info = &td->info;
-    PvTable* pvTable = &td->pvTable;
-
     CleanHistories(sd);
 
-    // Clean the PV Table
-    for (int index = 0; index < MAXDEPTH + 1; ++index) {
-        pvTable->pvLength[index] = 0;
-        for (int index2 = 0; index2 < MAXDEPTH + 1; ++index2) {
-            pvTable->pvArray[index][index2] = NOMOVE;
-        }
-    }
+    // Clean the PV move
+    td->bestMove = NOMOVE;
 
     std::memset(sd->counterMoves, NOMOVE, sizeof(sd->counterMoves));
 
