@@ -23,7 +23,7 @@ enum MovepickerType : uint8_t {
 
 struct Movepicker {
     MovepickerType movepickerType;
-    Position* pos;
+    Position& pos;
     SearchData* sd;
     SearchStack* ss;
     MoveList moveList;
@@ -33,8 +33,21 @@ struct Movepicker {
     Move counter;
     int idx;
     int stage;
+
+    Movepicker(Position& position, SearchData* searchdata, SearchStack* searchstack, const Move ttM, const MovepickerType movepickerT) : pos(position) {
+        const Move searchKiller = searchstack->searchKiller;
+        const Move counterM = searchdata->counterMoves[FromTo((searchstack - 1)->move)];
+
+        movepickerType = movepickerT;
+        sd = searchdata;
+        ss = searchstack;
+        ttMove = ttM;
+        idx = 0;
+        stage = ttMove ? PICK_TT : GEN_NOISY;
+        killer = searchKiller != ttMove ? searchKiller : NOMOVE;
+        counter = counterM != ttMove && counterM != killer ? counterM : NOMOVE;
+    }
 };
 
-void InitMP(Movepicker* mp, Position* pos, SearchData* sd, SearchStack* ss, const Move ttMove, const MovepickerType movepickerType);
-Move NextMove(Movepicker* mp, const bool skip);
+Move NextMove(Movepicker& mp, const bool skip);
 

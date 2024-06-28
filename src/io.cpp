@@ -43,7 +43,7 @@ void PrintBitboard(const Bitboard bitboard) {
 }
 
 // print board
-void PrintBoard(const Position* pos) {
+void PrintBoard(const Position& pos) {
     // print offset
     std::cout << "\n";
 
@@ -58,7 +58,7 @@ void PrintBoard(const Position* pos) {
             if (!file)
                 printf("  %d ", 8 - rank);
 
-            const int piece = pos->PieceOn(square);
+            const int piece = pos.PieceOn(square);
 
             printf(" %c", (piece == EMPTY) ? '.' : ascii_pieces[piece]);
         }
@@ -71,29 +71,29 @@ void PrintBoard(const Position* pos) {
     std::cout <<"\n     a b c d e f g h\n\n";
 
     // print side to move
-    printf("     Side:     %s\n", !pos->side ? "white" : "black");
+    printf("     Side:     %s\n", !pos.side ? "white" : "black");
 
     // print enpassant square
     printf("     Enpassant:   %s\n",
         (GetEpSquare(pos) != no_sq) ? square_to_coordinates[GetEpSquare(pos)] : "no");
 
     // print castling rights
-    printf("     Castling:  %c%c%c%c\n", (pos->GetCastlingPerm() & WKCA) ? 'K' : '-',
-        (pos->GetCastlingPerm() & WQCA) ? 'Q' : '-',
-        (pos->GetCastlingPerm() & BKCA) ? 'k' : '-',
-        (pos->GetCastlingPerm() & BQCA) ? 'q' : '-');
+    printf("     Castling:  %c%c%c%c\n", (pos.GetCastlingPerm() & WKCA) ? 'K' : '-',
+        (pos.GetCastlingPerm() & WQCA) ? 'Q' : '-',
+        (pos.GetCastlingPerm() & BKCA) ? 'k' : '-',
+        (pos.GetCastlingPerm() & BQCA) ? 'q' : '-');
 
-    std::cout << "position hisPly: " << pos->hisPly << std::endl;
+    std::cout << "position hisPly: " << pos.hisPly << std::endl;
 
-    std::cout << "position key: " << pos->posKey << std::endl;
+    std::cout << "position key: " << pos.posKey << std::endl;
 
-    std::cout << "pawn key: " << pos->pawnKey << std::endl;
+    std::cout << "pawn key: " << pos.pawnKey << std::endl;
 
     std::cout << "Fen: " << GetFen(pos) << "\n\n";
 }
 
 // print attacked squares
-void PrintAttackedSquares(const Position* pos, const int side) {
+void PrintAttackedSquares(const Position& pos, const int side) {
     std::cout << "\n";
 
     // loop over board ranks

@@ -16,7 +16,7 @@
 #include "eval.h"
 
 // convert a move to coordinate notation to internal notation
-int ParseMove(const std::string& moveString, Position* pos) {
+int ParseMove(const std::string& moveString, Position& pos) {
     // create move list instance
     MoveList moveList;
 
@@ -69,7 +69,7 @@ int ParseMove(const std::string& moveString, Position* pos) {
 }
 
 // parse UCI "position" command
-void ParsePosition(const std::string& command, Position* pos) {
+void ParsePosition(const std::string& command, Position& pos) {
     // parse UCI "startpos" command
     if (command.find("startpos") != std::string::npos) {
         // init chess board with start position
@@ -100,12 +100,12 @@ void ParsePosition(const std::string& command, Position* pos) {
     }
 
     // Update accumulator state to reflect the new position
-    nnue.accumulate(pos->accumStack[0], pos);
-    pos->accumStackHead = 1;
+    nnue.accumulate(pos.accumStack[0], pos);
+    pos.accumStackHead = 1;
 }
 
 // parse UCI "go" command, returns true if we have to search afterwards and false otherwise
-bool ParseGo(const std::string& line, SearchInfo* info, Position* pos) {
+bool ParseGo(const std::string& line, SearchInfo* info, Position& pos) {
     ResetInfo(info);
     int depth = -1, movetime = -1;
     int movestogo;
@@ -125,19 +125,19 @@ bool ParseGo(const std::string& line, SearchInfo* info, Position* pos) {
             return false;
         }
 
-        if (tokens.at(i) == "binc" && pos->side == BLACK) {
+        if (tokens.at(i) == "binc" && pos.side == BLACK) {
             inc = std::stoi(tokens[i + 1]);
         }
 
-        if (tokens.at(i) == "winc" && pos->side == WHITE) {
+        if (tokens.at(i) == "winc" && pos.side == WHITE) {
             inc = std::stoi(tokens[i + 1]);
         }
 
-        if (tokens.at(i) == "wtime" && pos->side == WHITE) {
+        if (tokens.at(i) == "wtime" && pos.side == WHITE) {
             time = std::stoi(tokens[i + 1]);
             info->timeset = true;
         }
-        if (tokens.at(i) == "btime" && pos->side == BLACK) {
+        if (tokens.at(i) == "btime" && pos.side == BLACK) {
             time = std::stoi(tokens[i + 1]);
             info->timeset = true;
         }
@@ -240,7 +240,7 @@ void UciLoop(int argc, char** argv) {
         // parse UCI "position" command
         if (tokens[0] == "position") {
             // call parse position function
-            ParsePosition(input, &td->pos);
+            ParsePosition(input, td->pos);
             parsed_position = true;
         }
 
@@ -252,10 +252,10 @@ void UciLoop(int argc, char** argv) {
                 main_thread.join();
 
             if (!parsed_position) { // call parse position function
-                ParsePosition("position startpos", &td->pos);
+                ParsePosition("position startpos", td->pos);
             }
             // call parse go function
-            bool search = ParseGo(input, &td->info, &td->pos);
+            bool search = ParseGo(input, &td->info, td->pos);
             // Start search in a separate thread
             if (search) {
                 threads_state = Search;
@@ -352,7 +352,7 @@ void UciLoop(int argc, char** argv) {
 
         // print board
         else if (input == "d") {
-            PrintBoard(&td->pos);
+            PrintBoard(td->pos);
         }
 
         // spsa info dump
@@ -365,11 +365,11 @@ void UciLoop(int argc, char** argv) {
 
         else if (input == "eval") {// call parse position function
             if (!parsed_position) {
-                ParsePosition("position startpos", &td->pos);
+                ParsePosition("position startpos", td->pos);
             }
             // print position eval
-            std::cout << "Raw eval: " << EvalPositionRaw(&td->pos) << std::endl;
-            std::cout << "Scaled eval: " << EvalPosition(&td->pos) << std::endl;
+            std::cout << "Raw eval: " << EvalPositionRaw(td->pos) << std::endl;
+            std::cout << "Scaled eval: " << EvalPosition(td->pos) << std::endl;
         }
 
         else if (input == "bench") {
@@ -388,7 +388,7 @@ void UciLoop(int argc, char** argv) {
             for (int i = 0; i < moveList.count; i++) {
                 Move move = moveList.moves[i].move;
                 for (int j = 1200; j > -1200; j--) {
-                    if (SEE(&td->pos, move, j)) {
+                    if (SEE(td->pos, move, j)) {
                         printf(" move number %d  %s SEE result: %d \n", i + 1, FormatMove(move), j);
                         break;
                     }

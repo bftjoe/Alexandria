@@ -15,11 +15,11 @@ int history_bonus(const int depth) {
     return std::min(16 * depth * depth + 32 * depth + 16, 1200);
 }
 
-void updateHHScore(const Position* pos, SearchData* sd, const Move move, int bonus) {
+void updateHHScore(const Position& pos, SearchData* sd, const Move move, int bonus) {
     // Scale bonus to fix it in a [-HH_MAX;HH_MAX] range
     const int scaledBonus = bonus - GetHHScore(pos, sd, move) * std::abs(bonus) / HH_MAX;
     // Update move score
-    sd->searchHistory[pos->side][FromTo(move)] += scaledBonus;
+    sd->searchHistory[pos.side][FromTo(move)] += scaledBonus;
 }
 
 void updateCHScore(SearchStack* ss, const Move move, const int bonus) {
@@ -37,10 +37,10 @@ void updateSingleCHScore(SearchStack* ss, const Move move, const int bonus, cons
     }
 }
 
-void updateCapthistScore(const Position* pos, SearchData* sd, const Move move, int bonus) {
+void updateCapthistScore(const Position& pos, SearchData* sd, const Move move, int bonus) {
     // Scale bonus to fix it in a [-CAPTHIST_MAX;CAPTHIST_MAX] range
     const int scaledBonus = bonus - GetCapthistScore(pos, sd, move) * std::abs(bonus) / CAPTHIST_MAX;
-    int capturedPiece = isEnpassant(move) ? PAWN : GetPieceType(pos->PieceOn(To(move)));
+    int capturedPiece = isEnpassant(move) ? PAWN : GetPieceType(pos.PieceOn(To(move)));
     // If we captured an empty piece this means the move is a promotion, we can pretend we captured a pawn to use a slot of the table that would've otherwise went unused (you can't capture pawns on the 1st/8th rank)
     if (capturedPiece == EMPTY) capturedPiece = PAWN;
     // Update move score
@@ -48,7 +48,7 @@ void updateCapthistScore(const Position* pos, SearchData* sd, const Move move, i
 }
 
 // Update all histories
-void UpdateHistories(const Position* pos, SearchData* sd, SearchStack* ss, const int depth, const Move bestMove, const MoveList* quietMoves, const MoveList* noisyMoves) {
+void UpdateHistories(const Position& pos, SearchData* sd, SearchStack* ss, const int depth, const Move bestMove, const MoveList* quietMoves, const MoveList* noisyMoves) {
     const int bonus = history_bonus(depth);
     if (!isTactical(bestMove))
     {
@@ -77,8 +77,8 @@ void UpdateHistories(const Position* pos, SearchData* sd, SearchStack* ss, const
 }
 
 // Returns the history score of a move
-int GetHHScore(const Position* pos, const SearchData* sd, const Move move) {
-    return sd->searchHistory[pos->side][FromTo(move)];
+int GetHHScore(const Position& pos, const SearchData* sd, const Move move) {
+    return sd->searchHistory[pos.side][FromTo(move)];
 }
 
 // Returns the history score of a move
@@ -94,15 +94,15 @@ int GetSingleCHScore(const SearchStack* ss, const Move move, const int offset) {
 }
 
 // Returns the history score of a move
-int GetCapthistScore(const Position* pos, const SearchData* sd, const Move move) {
-    int capturedPiece = isEnpassant(move) ? PAWN : GetPieceType(pos->PieceOn(To(move)));
+int GetCapthistScore(const Position& pos, const SearchData* sd, const Move move) {
+    int capturedPiece = isEnpassant(move) ? PAWN : GetPieceType(pos.PieceOn(To(move)));
     // If we captured an empty piece this means the move is a non capturing promotion, we can pretend we captured a pawn to use a slot of the table that would've otherwise went unused (you can't capture pawns on the 1st/8th rank)
     if (capturedPiece == EMPTY) capturedPiece = PAWN;
     return sd->captHist[PieceTo(move)][capturedPiece];
 }
 
-void updateCorrHistScore(const Position *pos, SearchData *sd, const int depth, const int diff) {
-    int &entry = sd->corrHist[pos->side][pos->pawnKey % CORRHIST_SIZE];
+void updateCorrHistScore(const Position& pos, SearchData *sd, const int depth, const int diff) {
+    int &entry = sd->corrHist[pos.side][pos.pawnKey % CORRHIST_SIZE];
     const int scaledDiff = diff * CORRHIST_GRAIN;
     const int newWeight = std::min(depth * depth + 2 * depth + 1, 128);
     assert(newWeight <= CORRHIST_WEIGHT_SCALE);
@@ -111,12 +111,12 @@ void updateCorrHistScore(const Position *pos, SearchData *sd, const int depth, c
     entry = std::clamp(entry, -CORRHIST_MAX, CORRHIST_MAX);
 }
 
-int adjustEvalWithCorrHist(const Position *pos, const SearchData *sd, const int rawEval) {
-    const int &entry = sd->corrHist[pos->side][pos->pawnKey % CORRHIST_SIZE];
+int adjustEvalWithCorrHist(const Position& pos, const SearchData *sd, const int rawEval) {
+    const int &entry = sd->corrHist[pos.side][pos.pawnKey % CORRHIST_SIZE];
     return std::clamp(rawEval + entry / CORRHIST_GRAIN, -MATE_FOUND + 1, MATE_FOUND - 1);
 }
 
-int GetHistoryScore(const Position* pos, const SearchData* sd, const Move move, const SearchStack* ss) {
+int GetHistoryScore(const Position& pos, const SearchData* sd, const Move move, const SearchStack* ss) {
     if (!isTactical(move))
         return GetHHScore(pos, sd, move) + GetCHScore(ss, move);
     else

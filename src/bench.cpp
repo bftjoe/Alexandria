@@ -72,7 +72,7 @@ void StartBench(int depth) {
     InitNewGame(td);
     auto start = std::chrono::steady_clock::now();
     for (int positions = 0; positions < 52; positions++) {
-        ParseFen(benchmarkfens[positions], &td->pos);
+        ParseFen(benchmarkfens[positions], td->pos);
         std::cout << "\nPosition: " << positions + 1 << " fen: " << benchmarkfens[positions] << std::endl;
         RootSearch(depth, td, &uciOptions);
         totalNodes += td->info.nodes;
@@ -94,7 +94,7 @@ void BenchInference() {
     int count = 100000000;
     for (int i = 0; i < count; i++) {
         auto start = std::chrono::high_resolution_clock::now();
-        dummy_eval = EvalPosition(&td->pos);
+        dummy_eval = EvalPosition(td->pos);
         auto stop = std::chrono::high_resolution_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
         sum += duration.count();

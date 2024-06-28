@@ -165,25 +165,25 @@ constexpr char ascii_pieces[13] = "PNBRQKpnbrqk";
 // NNUE
 extern NNUE nnue;
 
-[[nodiscard]] ZobristKey GeneratePosKey(const Position* pos);
-[[nodiscard]] ZobristKey GeneratePawnKey(const Position* pos);
+[[nodiscard]] ZobristKey GeneratePosKey(const Position& pos);
+[[nodiscard]] ZobristKey GeneratePawnKey(const Position& pos);
 // parse FEN string
-void ParseFen(const std::string& command, Position* pos);
+void ParseFen(const std::string& command, Position& pos);
 // Get fen string from board
-[[nodiscard]] std::string GetFen(const Position* pos);
+[[nodiscard]] std::string GetFen(const Position& pos);
 // Parse a string of moves in coordinate format and plays them
-void parse_moves(const std::string& moves, Position* pos);
+void parse_moves(const std::string& moves, Position& pos);
 
 void ResetInfo(SearchInfo* info);
 
 // Retrieve a generic piece (useful when we don't know what type of piece we are dealing with
-[[nodiscard]] Bitboard GetPieceBB(const Position* pos, const int piecetype);
+[[nodiscard]] Bitboard GetPieceBB(const Position& pos, const int piecetype);
 
 // Returns the threats bitboard of the pieces of <side> color
-[[nodiscard]] Bitboard getThreats(const Position* pos, const int side);
+[[nodiscard]] Bitboard getThreats(const Position& pos, const int side);
 
 // Returns whether the opponent of <side> has a guaranteed SEE > 0
-[[nodiscard]] bool oppCanWinMaterial(const Position* pos, const int side);
+[[nodiscard]] bool oppCanWinMaterial(const Position& pos, const int side);
 
 // Return a piece based on the type and the color
 [[nodiscard]] int GetPiece(const int piecetype, const int color);
@@ -192,21 +192,21 @@ void ResetInfo(SearchInfo* info);
 [[nodiscard]] int GetPieceType(const int piece);
 
 // Returns true if side has at least one piece on the board that isn't a pawn, false otherwise
-[[nodiscard]] bool BoardHasNonPawns(const Position* pos, const int side);
+[[nodiscard]] bool BoardHasNonPawns(const Position& pos, const int side);
 
 // Get on what square of the board the king of color c resides
-[[nodiscard]] int KingSQ(const Position* pos, const int c);
+[[nodiscard]] int KingSQ(const Position& pos, const int c);
 
-void UpdatePinsAndCheckers(Position* pos, const int side);
+void UpdatePinsAndCheckers(Position& pos, const int side);
 
 Bitboard RayBetween(int square1, int square2);
 
-[[nodiscard]] int GetEpSquare(const Position* pos);
+[[nodiscard]] int GetEpSquare(const Position& pos);
 
-ZobristKey keyAfter(const Position* pos, const Move move);
+ZobristKey keyAfter(const Position& pos, const Move move);
 
-void saveBoardState(Position* pos);
+void saveBoardState(Position& pos);
 
-void restorePreviousBoardState(Position* pos);
+void restorePreviousBoardState(Position& pos);
 
-bool hasGameCycle(Position* pos, int ply);
+bool hasGameCycle(Position& pos, int ply);

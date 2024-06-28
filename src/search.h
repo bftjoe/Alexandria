@@ -66,7 +66,7 @@ template <bool pvNode>
 [[nodiscard]] Move GetBestMove(const PvTable* pvTable);
 
 // inspired by the Weiss engine
-[[nodiscard]] bool SEE(const Position* pos, const int move, const int threshold);
+[[nodiscard]] bool SEE(const Position& pos, const int move, const int threshold);
 
 // Checks if the current position is a draw
-[[nodiscard]] bool IsDraw(Position* pos);
+[[nodiscard]] bool IsDraw(Position& pos);

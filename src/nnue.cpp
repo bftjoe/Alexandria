@@ -79,16 +79,16 @@ void NNUE::init(const char* file) {
 
 }
 
-void NNUE::accumulate(NNUE::Accumulator& board_accumulator, Position* pos) {
+void NNUE::accumulate(NNUE::Accumulator& board_accumulator, Position& pos) {
     for (int i = 0; i < L1_SIZE; i++) {
         board_accumulator.values[0][i] = net.FTBiases[i];
         board_accumulator.values[1][i] = net.FTBiases[i];
     }
 
     for (int i = 0; i < 64; i++) {
-        bool input = pos->pieces[i] != EMPTY;
+        bool input = pos.pieces[i] != EMPTY;
         if (!input) continue;
-        auto [whiteIdx, blackIdx] = GetIndex(pos->pieces[i], i);
+        auto [whiteIdx, blackIdx] = GetIndex(pos.pieces[i], i);
         auto whiteAdd = &net.FTWeights[whiteIdx * L1_SIZE];
         auto blackAdd = &net.FTWeights[blackIdx * L1_SIZE];
         for (int j = 0; j < L1_SIZE; j++) {

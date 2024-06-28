@@ -49,7 +49,7 @@ public:
     };
 
     void init(const char *file);
-    void accumulate(NNUE::Accumulator &board_accumulator, Position* pos);
+    void accumulate(NNUE::Accumulator &board_accumulator, Position& pos);
     void update(NNUE::Accumulator *acc);
     void addSub(NNUE::Accumulator *new_acc, NNUE::Accumulator *prev_acc, NNUEIndices add, NNUEIndices sub);
     void addSubSub(NNUE::Accumulator *new_acc, NNUE::Accumulator *prev_acc, NNUEIndices add, NNUEIndices sub1, NNUEIndices sub2);

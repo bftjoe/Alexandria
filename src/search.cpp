@@ -18,20 +18,20 @@
 #include "io.h"
 
 // Returns true if the position is a 2-fold repetition, false otherwise
-static bool IsRepetition(const Position* pos) {
-    assert(pos->hisPly >= pos->fiftyMove);
+static bool IsRepetition(const Position& pos) {
+    assert(pos.hisPly >= pos.fiftyMove);
     int counter = 0;
     // How many moves back should we look at most, aka our distance to the last irreversible move
-    int distance = std::min(pos->Get50mrCounter(), pos->plyFromNull);
+    int distance = std::min(pos.Get50mrCounter(), pos.plyFromNull);
     // Get the point our search should start from
-    int startingPoint = pos->played_positions.size();
+    int startingPoint = pos.played_positions.size();
     // Scan backwards from the first position where a repetition is possible (4 half moves ago) for at most distance steps
     for (int index = 4; index <= distance; index += 2)
         // if we found the same position hashkey as the current position
-        if (pos->played_positions[startingPoint - index] == pos->posKey) {
+        if (pos.played_positions[startingPoint - index] == pos.posKey) {
 
             // we found a 2-fold repetition within the search tree
-            if (index < pos->historyStackHead)
+            if (index < pos.historyStackHead)
                 return true;
 
             counter++;
@@ -43,12 +43,12 @@ static bool IsRepetition(const Position* pos) {
 }
 
 // Returns true if the position is a draw via the 50mr rule
-static bool Is50MrDraw(Position* pos) {
+static bool Is50MrDraw(Position& pos) {
 
-    if (pos->Get50mrCounter() >= 100) {
+    if (pos.Get50mrCounter() >= 100) {
 
         // If there's no risk we are being checkmated return true
-        if (!pos->checkers)
+        if (!pos.checkers)
             return true;
 
         // if we are in check make sure it's not checkmate 
@@ -68,7 +68,7 @@ static bool Is50MrDraw(Position* pos) {
 }
 
 // If we triggered any of the rules that forces a draw or we know the position is a draw return a draw score
-bool IsDraw(Position* pos) {
+bool IsDraw(Position& pos) {
     // if it's a 3-fold repetition, the fifty moves rule kicked in or there isn't enough material on the board to give checkmate then it's a draw
     return IsRepetition(pos)
         || Is50MrDraw(pos)
@@ -96,12 +96,12 @@ void ClearForSearch(ThreadData* td) {
 }
 
 // returns a bitboard of all the attacks to a specific square
-static inline Bitboard AttacksTo(const Position* pos, int to, Bitboard occ) {
+static inline Bitboard AttacksTo(const Position& pos, int to, Bitboard occ) {
     Bitboard attackingBishops = GetPieceBB(pos, BISHOP) | GetPieceBB(pos, QUEEN);
     Bitboard attackingRooks = GetPieceBB(pos, ROOK) | GetPieceBB(pos, QUEEN);
 
-    return (pawn_attacks[WHITE][to] & pos->GetPieceColorBB(PAWN, BLACK))
-         | (pawn_attacks[BLACK][to] & pos->GetPieceColorBB(PAWN, WHITE))
+    return (pawn_attacks[WHITE][to] & pos.GetPieceColorBB(PAWN, BLACK))
+         | (pawn_attacks[BLACK][to] & pos.GetPieceColorBB(PAWN, WHITE))
          | (knight_attacks[to] & GetPieceBB(pos, KNIGHT))
          | (king_attacks[to] & GetPieceBB(pos, KING))
          | (GetBishopAttacks(to, occ) & attackingBishops)
@@ -109,7 +109,7 @@ static inline Bitboard AttacksTo(const Position* pos, int to, Bitboard occ) {
 }
 
 // inspired by the Weiss engine
-bool SEE(const Position* pos, const int move, const int threshold) {
+bool SEE(const Position& pos, const int move, const int threshold) {
 
     // We can't win any material from castling, nor can we lose any
     if (isCastle(move))
@@ -118,7 +118,7 @@ bool SEE(const Position* pos, const int move, const int threshold) {
     int to = To(move);
     int from = From(move);
 
-    int target = isEnpassant(move) ? PAWN : pos->PieceOn(to);
+    int target = isEnpassant(move) ? PAWN : pos.PieceOn(to);
     int promo = getPromotedPiecetype(move);
     int value = SEEValue[target] - threshold;
 
@@ -131,7 +131,7 @@ bool SEE(const Position* pos, const int move, const int threshold) {
     if (value < 0)
         return false;
 
-    int attacker = pos->PieceOn(from);
+    int attacker = pos.PieceOn(from);
 
     // If we get captured, we lose the moved piece,
     // or the promoted piece in the case of promotions
@@ -143,7 +143,7 @@ bool SEE(const Position* pos, const int move, const int threshold) {
         return true;
 
     // It doesn't matter if the to square is occupied or not
-    Bitboard occupied = pos->Occupancy(BOTH) ^ (1ULL << from);
+    Bitboard occupied = pos.Occupancy(BOTH) ^ (1ULL << from);
     if (isEnpassant(move))
         occupied ^= GetEpSquare(pos);
 
@@ -159,7 +159,7 @@ bool SEE(const Position* pos, const int move, const int threshold) {
         // Remove used pieces from attackers
         attackers &= occupied;
 
-        Bitboard myAttackers = attackers & pos->Occupancy(side);
+        Bitboard myAttackers = attackers & pos.Occupancy(side);
         if (!myAttackers) {
             break;
         }
@@ -176,12 +176,12 @@ bool SEE(const Position* pos, const int move, const int threshold) {
 
         // Value beats threshold, or can't beat threshold (negamaxed)
         if (value >= 0) {
-            if (pt == KING && (attackers & pos->Occupancy(side)))
+            if (pt == KING && (attackers & pos.Occupancy(side)))
                 side ^= 1;
             break;
         }
         // Remove the used piece from occupied
-        occupied ^= 1ULL << (GetLsbIndex(myAttackers & pos->GetPieceColorBB(pt, side ^ 1)));
+        occupied ^= 1ULL << (GetLsbIndex(myAttackers & pos.GetPieceColorBB(pt, side ^ 1)));
 
         if (pt == PAWN || pt == BISHOP || pt == QUEEN)
             attackers |= GetBishopAttacks(to, occupied) & bishops;
@@ -350,13 +350,13 @@ int AspirationWindowSearch(int prev_eval, int depth, ThreadData* td) {
 template <bool pvNode>
 int Negamax(int alpha, int beta, int depth, const bool cutNode, ThreadData* td, SearchStack* ss) {
     // Extract data structures from ThreadData
-    Position* pos = &td->pos;
+    Position& pos = td->pos;
     SearchData* sd = &td->sd;
     SearchInfo* info = &td->info;
     PvTable* pvTable = &td->pvTable;
 
     // Initialize the node
-    const bool inCheck = pos->checkers;
+    const bool inCheck = pos.checkers;
     const bool rootNode = (ss->ply == 0);
     int eval;
     int rawEval;
@@ -410,7 +410,7 @@ int Negamax(int alpha, int beta, int depth, const bool cutNode, ThreadData* td, 
     }
 
     // Probe the TT for useful previous search informations, we avoid doing so if we are searching a singular extension
-    const bool ttHit = !excludedMove && ProbeTTEntry(pos->GetPoskey(), &tte);
+    const bool ttHit = !excludedMove && ProbeTTEntry(pos.GetPoskey(), &tte);
     const int ttScore = ttHit ? ScoreFromTT(tte.score, ss->ply) : SCORE_NONE;
     const Move ttMove = ttHit ? MoveFromTT(pos, tte.move) : NOMOVE;
     const uint8_t ttBound = ttHit ? BoundFromTT(tte.ageBoundPV) : uint8_t(HFNONE);
@@ -495,7 +495,7 @@ int Negamax(int alpha, int beta, int depth, const bool cutNode, ThreadData* td, 
             && (ss - 1)->move != NOMOVE
             && depth >= nmpDepth()
             && ss->ply >= td->nmpPlies
-            && BoardHasNonPawns(pos, pos->side)) {
+            && BoardHasNonPawns(pos, pos.side)) {
 
             ss->move = NOMOVE;
             const int R = 3 + depth / 3 + std::min((eval - beta) / 200, 3);
@@ -546,14 +546,13 @@ int Negamax(int alpha, int beta, int depth, const bool cutNode, ThreadData* td, 
     int totalMoves = 0;
     bool skipQuiets = false;
 
-    Movepicker mp;
-    InitMP(&mp, pos, sd, ss, ttMove, SEARCH);
+    Movepicker mp(pos, sd, ss, ttMove, SEARCH);
 
     // Keep track of the played quiet and noisy moves
     MoveList quietMoves, noisyMoves;
 
     // loop over moves within a movelist
-    while ((move = NextMove(&mp, skipQuiets)) != NOMOVE) {
+    while ((move = NextMove(mp, skipQuiets)) != NOMOVE) {
 
         if (move == excludedMove || !IsLegal(pos, move))
             continue;
@@ -564,7 +563,7 @@ int Negamax(int alpha, int beta, int depth, const bool cutNode, ThreadData* td, 
 
         const int moveHistory = GetHistoryScore(pos, sd, move, ss);
         if (   !rootNode
-            &&  BoardHasNonPawns(pos, pos->side)
+            &&  BoardHasNonPawns(pos, pos.side)
             &&  bestScore > -MATE_FOUND) {
 
             // lmrDepth is the current depth minus the reduction the move would undergo in lmr, this is helpful because it helps us discriminate the bad moves with more accuracy
@@ -673,7 +672,7 @@ int Negamax(int alpha, int beta, int depth, const bool cutNode, ThreadData* td, 
                 depthReduction -= 1 + cutNode;
 
             // Decrease the reduction for moves that give check
-            if (pos->checkers)
+            if (pos.checkers)
                 depthReduction -= 1;
 
             // Decrease the reduction for moves that have a good history score and increase it for moves with a bad score
@@ -776,7 +775,7 @@ int Negamax(int alpha, int beta, int depth, const bool cutNode, ThreadData* td, 
             &&  !(bound == HFUPPER && bestScore >= ss->staticEval)) {
             updateCorrHistScore(pos, sd, depth, bestScore - ss->staticEval);
         }
-        StoreTTEntry(pos->posKey, MoveToTT(bestMove), ScoreToTT(bestScore, ss->ply), rawEval, bound, depth, pvNode, ttPv);
+        StoreTTEntry(pos.posKey, MoveToTT(bestMove), ScoreToTT(bestScore, ss->ply), rawEval, bound, depth, pvNode, ttPv);
     }
 
     return bestScore;
@@ -785,10 +784,10 @@ int Negamax(int alpha, int beta, int depth, const bool cutNode, ThreadData* td, 
 // Quiescence search to avoid the horizon effect
 template <bool pvNode>
 int Quiescence(int alpha, int beta, ThreadData* td, SearchStack* ss) {
-    Position* pos = &td->pos;
+    Position& pos = td->pos;
     SearchData* sd = &td->sd;
     SearchInfo* info = &td->info;
-    const bool inCheck = pos->checkers;
+    const bool inCheck = pos.checkers;
     // tte is an TT entry, it will store the values fetched from the TT
     TTEntry tte;
     int bestScore;
@@ -817,7 +816,7 @@ int Quiescence(int alpha, int beta, ThreadData* td, SearchStack* ss) {
     }
 
     // ttHit is true if and only if we find something in the TT
-    const bool ttHit = ProbeTTEntry(pos->GetPoskey(), &tte);
+    const bool ttHit = ProbeTTEntry(pos.GetPoskey(), &tte);
     const int ttScore = ttHit ? ScoreFromTT(tte.score, ss->ply) : SCORE_NONE;
     const Move ttMove = ttHit ? MoveFromTT(pos, tte.move) : NOMOVE;
     const uint8_t ttBound = ttHit ? BoundFromTT(tte.ageBoundPV) : uint8_t(HFNONE);
@@ -854,7 +853,7 @@ int Quiescence(int alpha, int beta, ThreadData* td, SearchStack* ss) {
         rawEval = EvalPosition(pos);
         bestScore = ss->staticEval = adjustEvalWithCorrHist(pos, sd, rawEval);
         // Save the eval into the TT
-        StoreTTEntry(pos->posKey, NOMOVE, SCORE_NONE, rawEval, HFNONE, 0, pvNode, ttPv);
+        StoreTTEntry(pos.posKey, NOMOVE, SCORE_NONE, rawEval, HFNONE, 0, pvNode, ttPv);
     }
 
     // Stand pat
@@ -864,16 +863,14 @@ int Quiescence(int alpha, int beta, ThreadData* td, SearchStack* ss) {
     // Adjust alpha based on eval
     alpha = std::max(alpha, bestScore);
 
-    Movepicker mp;
     // If we aren't in check we generate just the captures, otherwise we generate all the moves
-    InitMP(&mp, pos, sd, ss, ttMove, QSEARCH);
-
+    Movepicker mp(pos, sd, ss, ttMove, QSEARCH);
     Move bestmove = NOMOVE;
     Move move;
     int totalMoves = 0;
 
     // loop over moves within the movelist
-    while ((move = NextMove(&mp, !inCheck || bestScore > -MATE_FOUND)) != NOMOVE) {
+    while ((move = NextMove(mp, !inCheck || bestScore > -MATE_FOUND)) != NOMOVE) {
 
         if (!IsLegal(pos, move))
             continue;
@@ -883,7 +880,7 @@ int Quiescence(int alpha, int beta, ThreadData* td, SearchStack* ss) {
         // Futility pruning. If static eval is far below alpha, only search moves that win material.
         if (    bestScore > -MATE_FOUND
             && !inCheck
-            &&  BoardHasNonPawns(pos, pos->side)) {
+            &&  BoardHasNonPawns(pos, pos.side)) {
             const int futilityBase = ss->staticEval + 192;
             if (futilityBase <= alpha && !SEE(pos, move, 1)) {
                 bestScore = std::max(futilityBase, bestScore);
@@ -932,7 +929,7 @@ int Quiescence(int alpha, int beta, ThreadData* td, SearchStack* ss) {
     // Set the TT bound based on whether we failed high, for qsearch we never use the exact bound
     int bound = bestScore >= beta ? HFLOWER : HFUPPER;
 
-    StoreTTEntry(pos->posKey, MoveToTT(bestmove), ScoreToTT(bestScore, ss->ply), rawEval, bound, 0, pvNode, ttPv);
+    StoreTTEntry(pos.posKey, MoveToTT(bestmove), ScoreToTT(bestScore, ss->ply), rawEval, bound, 0, pvNode, ttPv);
 
     return bestScore;
 }

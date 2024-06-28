@@ -33,10 +33,10 @@ Bitboard bishop_masks[64];
 // rook attack masks
 Bitboard rook_masks[64];
 
-// bishop attacks table [square][pos->occupancies]
+// bishop attacks table [square][pos.occupancies]
 Bitboard bishop_attacks[64][512];
 
-// rook attacks rable [square][pos->occupancies]
+// rook attacks rable [square][pos.occupancies]
 Bitboard rook_attacks[64][4096];
 
 Bitboard SQUARES_BETWEEN_BB[64][64];
@@ -220,7 +220,7 @@ void InitAll() {
 
 void InitNewGame(ThreadData* td) {
     // Extract data structures from ThreadData
-    Position* pos = &td->pos;
+    Position& pos = td->pos;
     SearchData* sd = &td->sd;
     SearchInfo* info = &td->info;
     PvTable* pvTable = &td->pvTable;
@@ -251,7 +251,7 @@ void InitNewGame(ThreadData* td) {
     threads_data.clear();
 
     // delete played moves hashes
-    pos->played_positions.clear();
+    pos.played_positions.clear();
     // call parse position function
     ParsePosition("position startpos", pos);
 }
