@@ -179,7 +179,7 @@ bool ParseGo(const std::string& line, SearchInfo* info, Position* pos) {
     std::cout << "stopMax: " << info->stoptimeMax << " ";
     std::cout << "depth: " << info->depth << " ";
     std::cout << "timeset: " << info->timeset << " ";
-    std::cout << "nodeset: " << info->nodeset << "\n";
+    std::cout << "nodeset: " << info->nodeset << std::endl;
     return true;
 }
 
@@ -264,7 +264,7 @@ void UciLoop(int argc, char** argv) {
         else if (tokens[0] == "setoption") {
             // check tokens for size to see if we have a value
             if (tokens.size() < 5) {
-                std::cout << "Invalid setoption format" << "\n";
+                std::cout << "Invalid setoption format" << std::endl;
                 continue;
             }
             if (tokens.at(2) == "Hash") {
@@ -287,7 +287,7 @@ void UciLoop(int argc, char** argv) {
 
         // parse UCI "isready" command
         else if (input == "isready") {
-            std::cout << "readyok\n";
+            std::cout << "readyok"<< std::endl;
             continue;
         }
 
@@ -343,7 +343,9 @@ void UciLoop(int argc, char** argv) {
                 std::cout << param.maxValue << "\n";
             }
 #endif
-            std::cout << "uciok\n";
+            std::cout << "uciok" << std::endl;
+            // Set uci compatible output mode
+            // print_uci = true;
         }
 
         // print board
@@ -355,7 +357,7 @@ void UciLoop(int argc, char** argv) {
         else if (input == "tune") {
             for (const auto &[key, param] : tunableParams())
             {
-                std::cout << param << "\n";
+                std::cout << param << std::endl;
             }
         }
 
@@ -377,7 +379,7 @@ void UciLoop(int argc, char** argv) {
             MoveList moveList;
 
             // generate moves
-            GenerateMoves(&moveList, &td->pos, MOVEGEN_NOISY);
+            GenerateMoves(&moveList, &td->pos, MOVEGEN_ALL);
             printf("SEE thresholds\n");
             for (int i = 0; i < moveList.count; i++) {
                 Move move = moveList.moves[i].move;

@@ -187,7 +187,6 @@ void PrintUciOutput(const int score, const int depth, const ThreadData* td) {
             std::cout << "info score cp " << score << " depth " << depth << " seldepth " << td->info.seldepth << " multipv " << MultiPV << " nodes " << nodes <<
             " nps " << nps << " hashfull "<< GetHashfull() << " time " << GetTimeMs() - td->info.starttime << " pv ";
 
-        // loop over the moves within a PV line
         auto & bestM = td->bestMove;
         if (bestM != NOMOVE)
             PrintMove(bestM);
@@ -274,6 +273,6 @@ void PrintUciOutput(const int score, const int depth, const ThreadData* td) {
         }
 
         // print new line
-        std::cout << "\n";
+        std::cout << std::endl;
     }
 }

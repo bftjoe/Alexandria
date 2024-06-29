@@ -214,7 +214,7 @@ void RootSearch(int depth, ThreadData* td) {
     // Print final bestmove found
     std::cout << "bestmove ";
     PrintMove(td->bestMove);
-    std::cout << "\n";
+    std::cout << std::endl;
 }
 
 // SearchPosition is the actual function that handles the search, it sets up the variables needed for the search, calls the AspirationWindowSearch function and handles the console output
@@ -223,6 +223,7 @@ void SearchPosition(int startDepth, int finalDepth, ThreadData* td) {
     int score = 0;
     int averageScore = SCORE_NONE;
     int bestMoveStabilityFactor = 0;
+    int evalStabilityFactor = 0;
     Move previousBestMove = NOMOVE;
     // Clean the position and the search info to start search from a clean state
     ClearForSearch(td);
@@ -242,10 +243,19 @@ void SearchPosition(int startDepth, int finalDepth, ThreadData* td) {
                 bestMoveStabilityFactor = 0;
                 previousBestMove = td->bestMove;
             }
+
+            // Keep track of eval stability
+            if (score >  averageScore - 10 && score < averageScore + 10) {
+                evalStabilityFactor = std::min(evalStabilityFactor + 1, 4);
+            }
+            else {
+                evalStabilityFactor = 0;
+            }
+
             // use the previous search to adjust some of the time management parameters, do not scale movetime time controls
             if (   td->RootDepth > 7
                 && td->info.timeset) {
-                ScaleTm(td, bestMoveStabilityFactor);
+                ScaleTm(td, bestMoveStabilityFactor, evalStabilityFactor);
             }
 
             // check if we just cleared a depth and more than OptTime passed, or we used more than the give nodes
@@ -438,9 +448,8 @@ int Negamax(int alpha, int beta, int depth, const bool cutNode, ThreadData* td, 
         // If we don't have anything in the TT we have to call evalposition
         rawEval = EvalPosition(pos);
         eval = ss->staticEval = adjustEvalWithCorrHist(pos, sd, rawEval);
-        if (!excludedMove)
-            // Save the eval into the TT
-            StoreTTEntry(pos->posKey, NOMOVE, SCORE_NONE, rawEval, HFNONE, 0, pvNode, ttPv);
+        // Save the eval into the TT
+        StoreTTEntry(pos->posKey, NOMOVE, SCORE_NONE, rawEval, HFNONE, 0, pvNode, ttPv);
     }
 
     // Improving is a very important modifier to many heuristics. It checks if our static eval has improved since our last move.
