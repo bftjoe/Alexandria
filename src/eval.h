@@ -24,7 +24,7 @@
     return false;
 }
 
-static inline int ScaleMaterial(const Position* pos, int eval) {
+[[nodiscard]] static inline int ScaleMaterial(const Position* pos, int eval) {
     const int knights = CountBits(GetPieceBB(pos, KNIGHT));
     const int bishops = CountBits(GetPieceBB(pos, BISHOP));
     const int rooks = CountBits(GetPieceBB(pos, ROOK));
@@ -36,19 +36,18 @@ static inline int ScaleMaterial(const Position* pos, int eval) {
 
 [[nodiscard]] inline int EvalPositionRaw(Position* pos) {
     // Update accumulators to ensure we are up to date on the current board state
-    nnue.update(&pos->AccumulatorTop());
-
-    const bool stm = pos->side == WHITE;
+    nnue.update(&pos->AccumulatorTop(), pos);
     const int pieceCount = pos->PieceCount();
     const int outputBucket = std::min((63 - pieceCount) * (32 - pieceCount) / 225, 7);
-    return nnue.output(pos->accumStack[pos->accumStackHead - 1], stm, outputBucket);
+    return nnue.output(pos->AccumulatorTop(), pos->side, outputBucket);
 }
 
 // position evaluation
 [[nodiscard]] inline int EvalPosition(Position* pos) {
     int eval = EvalPositionRaw(pos);
     eval = ScaleMaterial(pos, eval);
-    eval = eval * (200 - pos->Get50mrCounter()) / 200;
+    eval = eval * (200 - pos->get50MrCounter()) / 200;
+    eval = (eval / 16) * 16 - 1 + (pos->posKey & 0x2);
     // Clamp eval to avoid it somehow being a mate score
     eval = std::clamp(eval, -MATE_FOUND + 1, MATE_FOUND - 1);
     return eval;

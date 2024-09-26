@@ -5,9 +5,10 @@ TARGET      := Andrea
 WARNINGS     = -Wall -Wcast-qual -Wextra -Wshadow -Wdouble-promotion -Wformat=2 -Wnull-dereference -Wlogical-op -Wold-style-cast -Wundef -pedantic
 CXXFLAGS    := -funroll-loops -O3 -flto -fno-exceptions -std=gnu++2a -DNDEBUG $(WARNINGS)
 NATIVE       = -march=native
-AVX2FLAGS    = -DUSE_AVX2 -DUSE_SIMD -mavx2 -mbmi
-BMI2FLAGS    = -DUSE_AVX2 -DUSE_SIMD -mavx2 -mbmi -mbmi2
-AVX512FLAGS  = -DUSE_AVX512 -DUSE_SIMD -mavx512f -mavx512bw
+AVX2FLAGS    = -DUSE_AVX2 -DUSE_SIMD -mavx2 -mbmi -mfma
+BMI2FLAGS    = -DUSE_AVX2 -DUSE_SIMD -mavx2 -mbmi -mbmi2 -mfma
+AVX512FLAGS  = -DUSE_AVX512 -DUSE_SIMD -mavx512f -mavx512bw -mfma
+VNNI512FLAGS = -DUSE_VNNI512 -DUSE_AVX512 -DUSE_SIMD -mavx512f -mavx512bw -mavx512vnni -mfma
 
 # engine name
 NAME        := Andrea
@@ -48,52 +49,39 @@ ifeq ($(uname_S), Darwin)
 	FLAGS = 
 endif
 
-ARCH_DETECTED =
+FLAGS_DETECTED = 
 PROPERTIES = $(shell echo | $(CXX) -march=native -E -dM -)
+
+ifneq ($(findstring __AVX2__, $(PROPERTIES)),)
+	FLAGS_DETECTED = $(AVX2FLAGS)
+endif
+
+ifneq ($(findstring __BMI2__, $(PROPERTIES)),)
+	FLAGS_DETECTED = $(BMI2FLAGS)
+endif
+
 ifneq ($(findstring __AVX512F__, $(PROPERTIES)),)
 	ifneq ($(findstring __AVX512BW__, $(PROPERTIES)),)
-		ARCH_DETECTED = AVX512
+		FLAGS_DETECTED = $(AVX512FLAGS)
 	endif
 endif
-ifeq ($(ARCH_DETECTED),)
-	ifneq ($(findstring __BMI2__, $(PROPERTIES)),)
-		ARCH_DETECTED = BMI2
-	endif
-endif
-ifeq ($(ARCH_DETECTED),)
-	ifneq ($(findstring __AVX2__, $(PROPERTIES)),)
-		ARCH_DETECTED = AVX2
-	endif
+
+ifneq ($(findstring __AVX512VNNI__, $(PROPERTIES)),)
+	FLAGS_DETECTED = $(VNNI512FLAGS)
 endif
 
 # Remove native for builds
 ifdef build
 	NATIVE =
 else
-	ifeq ($(ARCH_DETECTED), AVX512)
-		CXXFLAGS += $(AVX512FLAGS)
-	endif
-	ifeq ($(ARCH_DETECTED), BMI2)
-		CXXFLAGS += $(BMI2FLAGS)
-	endif
-	ifeq ($(ARCH_DETECTED), AVX2)
-		CXXFLAGS += $(AVX2FLAGS)
-	endif
+	CXXFLAGS += $(FLAGS_DETECTED)
 endif
 
 # SPECIFIC BUILDS
 ifeq ($(build), native)
 	NATIVE     = -march=native
 	ARCH       = -x86-64-native
-	ifeq ($(ARCH_DETECTED), AVX512)
-		CXXFLAGS += $(AVX512FLAGS)
-	endif
-	ifeq ($(ARCH_DETECTED), BMI2)
-		CXXFLAGS += $(BMI2FLAGS)
-	endif
-	ifeq ($(ARCH_DETECTED), AVX2)
-		CXXFLAGS += $(AVX2FLAGS)
-	endif
+	CXXFLAGS += $(FLAGS_DETECTED)
 endif
 
 ifeq ($(build), x86-64)
@@ -126,19 +114,25 @@ ifeq ($(build), x86-64-avx512)
 	CXXFLAGS += $(AVX512FLAGS)
 endif
 
+ifeq ($(build), x86-64-vnni512)
+	NATIVE    = -march=x86-64-v4 -mtune=znver4
+	ARCH      = -x86-64-vnni512
+	CXXFLAGS += $(VNNI512FLAGS)
+endif
+
 ifeq ($(build), debug)
-	CXXFLAGS = -O3 -g3 -fno-omit-frame-pointer -std=gnu++2a
+	CXXFLAGS = -O3 -g3 -fno-omit-frame-pointer -std=gnu++2a -fsanitize=address -fsanitize=leak -fsanitize=undefined
 	NATIVE   = -msse -msse3 -mpopcnt
 	FLAGS    = -lpthread -lstdc++
-	ifeq ($(ARCH_DETECTED), AVX512)
-		CXXFLAGS += $(AVX512FLAGS)
-	endif
-	ifeq ($(ARCH_DETECTED), BMI2)
-		CXXFLAGS += $(BMI2FLAGS)
-	endif
-	ifeq ($(ARCH_DETECTED), AVX2)
-		CXXFLAGS += $(AVX2FLAGS)
-	endif
+	CXXFLAGS += $(FLAGS_DETECTED)
+endif
+
+# valgrind doesn't like avx512 code
+ifeq ($(build), debug-avx2)
+	CXXFLAGS = -O3 -g3 -fno-omit-frame-pointer -std=gnu++2a -fsanitize=address -fsanitize=leak -fsanitize=undefined
+	NATIVE   = -msse -msse3 -mpopcnt
+	FLAGS    = -lpthread -lstdc++
+	CXXFLAGS += $(AVX2FLAGS)
 endif
 
 # Get what pgo flags we should be using

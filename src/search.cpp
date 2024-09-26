@@ -2,6 +2,7 @@
 #include <cassert>
 #include <iostream>
 #include "bitboard.h"
+#include "move.h"
 #include "search.h"
 #include "history.h"
 #include "piece_data.h"
@@ -16,13 +17,14 @@
 #include "movegen.h"
 #include "time_manager.h"
 #include "io.h"
+#include "types.h"
 
 // Returns true if the position is a 2-fold repetition, false otherwise
 static bool IsRepetition(const Position* pos) {
-    assert(pos->hisPly >= pos->fiftyMove);
+    assert(pos->hisPly >= pos->get50MrCounter());
     int counter = 0;
     // How many moves back should we look at most, aka our distance to the last irreversible move
-    int distance = std::min(pos->Get50mrCounter(), pos->plyFromNull);
+    int distance = std::min(pos->get50MrCounter(), pos->getPlyFromNull());
     // Get the point our search should start from
     int startingPoint = pos->played_positions.size();
     // Scan backwards from the first position where a repetition is possible (4 half moves ago) for at most distance steps
@@ -45,10 +47,10 @@ static bool IsRepetition(const Position* pos) {
 // Returns true if the position is a draw via the 50mr rule
 static bool Is50MrDraw(Position* pos) {
 
-    if (pos->Get50mrCounter() >= 100) {
+    if (pos->get50MrCounter() >= 100) {
 
         // If there's no risk we are being checkmated return true
-        if (!pos->checkers)
+        if (!pos->getCheckers())
             return true;
 
         // if we are in check make sure it's not checkmate 
@@ -142,7 +144,7 @@ bool SEE(const Position* pos, const int move, const int threshold) {
     // It doesn't matter if the to square is occupied or not
     Bitboard occupied = pos->Occupancy(BOTH) ^ (1ULL << from);
     if (isEnpassant(move))
-        occupied ^= GetEpSquare(pos);
+        occupied ^= pos->getEpSquare();
 
     Bitboard attackers = AttacksTo(pos, to, occupied);
 
@@ -221,18 +223,27 @@ void RootSearch(int depth, ThreadData* td) {
 void SearchPosition(int startDepth, int finalDepth, ThreadData* td) {
     // variable used to store the score of the best move found by the search (while the move itself can be retrieved from the triangular PV table)
     int score = 0;
+    int prevScore = 0;
     int averageScore = SCORE_NONE;
     int bestMoveStabilityFactor = 0;
     int evalStabilityFactor = 0;
     Move previousBestMove = NOMOVE;
+
     // Clean the position and the search info to start search from a clean state
     ClearForSearch(td);
     UpdateTableAge();
+    bool printFinalInfoString = false;
+
+    std::memset(td->sd.rootHistory, 0, sizeof(td->sd.rootHistory));
 
     // Call the Negamax function in an iterative deepening framework
     for (int currentDepth = startDepth; currentDepth <= finalDepth; currentDepth++) {
         score = AspirationWindowSearch(averageScore, currentDepth, td);
         averageScore = averageScore == SCORE_NONE ? score : (averageScore + score) / 2;
+
+        // If we stop (not at an exact depth) we print a final info string
+        printFinalInfoString = td->info.stopped;
+
         // Only the main thread handles time related tasks
         if (td->id == 0) {
             // Keep track of how many times in a row the best move stayed the same
@@ -245,7 +256,7 @@ void SearchPosition(int startDepth, int finalDepth, ThreadData* td) {
             }
 
             // Keep track of eval stability
-            if (score >  averageScore - 10 && score < averageScore + 10) {
+            if (score > averageScore - 10 && score < averageScore + 10) {
                 evalStabilityFactor = std::min(evalStabilityFactor + 1, 4);
             }
             else {
@@ -263,6 +274,11 @@ void SearchPosition(int startDepth, int finalDepth, ThreadData* td) {
                 // Stop main-thread search
                 td->info.stopped = true;
         }
+
+        // Print a final info string if we have to
+        if (td->id == 0 && printFinalInfoString)
+            PrintUciOutput(prevScore, currentDepth - 1, td, options);
+
         // stop calculating and return best move so far
         if (td->info.stopped)
             break;
@@ -272,6 +288,7 @@ void SearchPosition(int startDepth, int finalDepth, ThreadData* td) {
             PrintUciOutput(score, currentDepth, td);
         // Seldepth should only be related to the current ID loop
         td->info.seldepth = 0;
+        prevScore = score;
     }
 }
 
@@ -348,11 +365,10 @@ int Negamax(int alpha, int beta, int depth, const bool cutNode, ThreadData* td, 
     SearchInfo* info = &td->info;
 
     // Initialize the node
-    const bool inCheck = pos->checkers;
+    const bool inCheck = pos->getCheckers();
     const bool rootNode = (ss->ply == 0);
     int eval;
     int rawEval;
-    bool improving;
     int score = -MAXSCORE;
     TTEntry tte;
 
@@ -370,6 +386,7 @@ int Negamax(int alpha, int beta, int depth, const bool cutNode, ThreadData* td, 
     if (td->id == 0 && TimeOver(&td->info)) {
         StopHelperThreads();
         td->info.stopped = true;
+        return 0;
     }
 
     // Check for early return conditions
@@ -398,7 +415,7 @@ int Negamax(int alpha, int beta, int depth, const bool cutNode, ThreadData* td, 
     }
 
     // Probe the TT for useful previous search informations, we avoid doing so if we are searching a singular extension
-    const bool ttHit = !excludedMove && ProbeTTEntry(pos->GetPoskey(), &tte);
+    const bool ttHit = !excludedMove && ProbeTTEntry(pos->getPoskey(), &tte);
     const int ttScore = ttHit ? ScoreFromTT(tte.score, ss->ply) : SCORE_NONE;
     const Move ttMove = ttHit ? MoveFromTT(pos, tte.move) : NOMOVE;
     const uint8_t ttBound = ttHit ? BoundFromTT(tte.ageBoundPV) : uint8_t(HFNONE);
@@ -414,11 +431,7 @@ int Negamax(int alpha, int beta, int depth, const bool cutNode, ThreadData* td, 
 
     const bool ttPv = pvNode || (ttHit && FormerPV(tte.ageBoundPV));
 
-    // IIR by Ed Schroder (That i find out about in Berserk source code)
-    // http://talkchess.com/forum3/viewtopic.php?f=7&t=74769&sid=64085e3396554f0fba414404445b3120
-    // https://github.com/jhonnold/berserk/blob/dd1678c278412898561d40a31a7bd08d49565636/src/search.c#L379
-    if (depth >= 4 && ttBound == HFNONE)
-        depth--;
+    const bool canIIR = depth >= 4 && ttBound == HFNONE;
 
     // clean killers and excluded move for the next ply
     (ss + 1)->excludedMove = NOMOVE;
@@ -455,16 +468,15 @@ int Negamax(int alpha, int beta, int depth, const bool cutNode, ThreadData* td, 
     // Improving is a very important modifier to many heuristics. It checks if our static eval has improved since our last move.
     // As we don't evaluate in check, we look for the first ply we weren't in check between 2 and 4 plies ago. If we find that
     // static eval has improved, or that we were in check both 2 and 4 plies ago, we set improving to true.
-    if(inCheck)
-        improving = false;
-    else if ((ss - 2)->staticEval != SCORE_NONE) {
-        improving = ss->staticEval > (ss - 2)->staticEval;
-    }
-    else if ((ss - 4)->staticEval != SCORE_NONE) {
-        improving = ss->staticEval > (ss - 4)->staticEval;
-    }
-    else
-        improving = true;
+    const bool improving = [&] {
+        if (inCheck)
+            return false;
+        else if ((ss - 2)->staticEval != SCORE_NONE)
+            return ss->staticEval > (ss - 2)->staticEval;
+        else if ((ss - 4)->staticEval != SCORE_NONE)
+            return ss->staticEval > (ss - 4)->staticEval;
+        return true;
+    }();
 
     if (!pvNode
         && !excludedMove
@@ -472,14 +484,16 @@ int Negamax(int alpha, int beta, int depth, const bool cutNode, ThreadData* td, 
         // Reverse futility pruning
         if (   depth < 10
             && abs(eval) < MATE_FOUND
-            && eval - 91 * (depth - improving) >= beta)
-            return eval;
+            && (ttMove == NOMOVE || isTactical(ttMove))
+            && eval - 91 * (depth - improving - canIIR) >= beta)
+            return eval - 91 * (depth - improving - canIIR);
 
         // Null move pruning: If our position is so good that we can give the opponent a free move and still fail high,
         // return early. At higher depth we do a reduced search with null move pruning disabled (ie verification search)
         // to prevent falling into zugzwangs.
         if (   eval >= ss->staticEval
             && eval >= beta
+            && ss->staticEval >= beta - 30 * depth + 170
             && (ss - 1)->move != NOMOVE
             && depth >= nmpDepth()
             && ss->ply >= td->nmpPlies
@@ -492,7 +506,7 @@ int Negamax(int alpha, int beta, int depth, const bool cutNode, ThreadData* td, 
             MakeNullMove(pos);
 
             // Search moves at a reduced depth to find beta cutoffs.
-            int nmpScore = -Negamax<false>(-beta, -beta + 1, depth - R, !cutNode, td, ss + 1);
+            int nmpScore = -Negamax<false>(-beta, -beta + 1, depth - R - canIIR, !cutNode, td, ss + 1);
 
             TakeNullMove(pos);
 
@@ -525,6 +539,12 @@ int Negamax(int alpha, int beta, int depth, const bool cutNode, ThreadData* td, 
         }
     }
 
+    // IIR by Ed Schroder (That i find out about in Berserk source code)
+    // http://talkchess.com/forum3/viewtopic.php?f=7&t=74769&sid=64085e3396554f0fba414404445b3120
+    // https://github.com/jhonnold/berserk/blob/dd1678c278412898561d40a31a7bd08d49565636/src/search.c#L379
+    if (canIIR)
+        depth -= 1;
+
     // old value of alpha
     const int old_alpha = alpha;
     int bestScore = -MAXSCORE;
@@ -535,7 +555,7 @@ int Negamax(int alpha, int beta, int depth, const bool cutNode, ThreadData* td, 
     bool skipQuiets = false;
 
     Movepicker mp;
-    InitMP(&mp, pos, sd, ss, ttMove, SEARCH);
+    InitMP(&mp, pos, sd, ss, ttMove, SEARCH, rootNode);
 
     // Keep track of the played quiet and noisy moves
     MoveList quietMoves, noisyMoves;
@@ -550,9 +570,8 @@ int Negamax(int alpha, int beta, int depth, const bool cutNode, ThreadData* td, 
 
         const bool isQuiet = !isTactical(move);
 
-        const int moveHistory = GetHistoryScore(pos, sd, move, ss);
+        const int moveHistory = GetHistoryScore(pos, sd, move, ss, false);
         if (   !rootNode
-            &&  BoardHasNonPawns(pos, pos->side)
             &&  bestScore > -MATE_FOUND) {
 
             // lmrDepth is the current depth minus the reduction the move would undergo in lmr, this is helpful because it helps us discriminate the bad moves with more accuracy
@@ -562,7 +581,6 @@ int Negamax(int alpha, int beta, int depth, const bool cutNode, ThreadData* td, 
 
                 // Movecount pruning: if we searched enough moves and we are not in check we skip the rest
                 if (!pvNode
-                    && !inCheck
                     && totalMoves > lmp_margin[std::min(depth, 63)][improving]) {
                     skipQuiets = true;
                 }
@@ -576,8 +594,7 @@ int Negamax(int alpha, int beta, int depth, const bool cutNode, ThreadData* td, 
             }
 
             // See pruning: prune all the moves that have a SEE score that is lower than our threshold
-            if (    depth <= 8
-                && !SEE(pos, move, see_margin[std::min(lmrDepth, 63)][isQuiet]))
+            if (!SEE(pos, move, see_margin[std::min(lmrDepth, 63)][isQuiet]))
                 continue;
         }
 
@@ -610,8 +627,8 @@ int Negamax(int alpha, int beta, int depth, const bool cutNode, ThreadData* td, 
                         depth += depth < 10;
                     }
                 }
-                else if (singularBeta >= beta)
-                    return singularBeta;
+                else if (singularScore >= beta)
+                    return singularScore;
 
                 // If we didn't successfully extend and our TT score is above beta reduce the search depth
                 else if (ttScore >= beta)
@@ -644,28 +661,38 @@ int Negamax(int alpha, int beta, int depth, const bool cutNode, ThreadData* td, 
             // Get base reduction value
             int depthReduction = reductions[isQuiet][std::min(depth, 63)][std::min(totalMoves, 63)];
 
-            // Fuck
-            if (cutNode)
-                depthReduction += 2;
+            if (isQuiet) {
+                // Fuck
+                if (cutNode)
+                    depthReduction += 2;
 
-            // Reduce more if we are not improving
-            if (!improving)
-                depthReduction += 1;
+                // Reduce more if we are not improving
+                if (!improving)
+                    depthReduction += 1;
 
-            // Reduce less if the move is a refutation
-            if (move == mp.killer || move == mp.counter)
-                depthReduction -= 1;
+                // Reduce less if the move is a refutation
+                if (move == mp.killer || move == mp.counter)
+                    depthReduction -= 1;
 
-            // Reduce less if we have been on the PV
-            if (ttPv)
-                depthReduction -= 1 + cutNode;
+                // Decrease the reduction for moves that give check
+                if (pos->getCheckers())
+                    depthReduction -= 1;
 
-            // Decrease the reduction for moves that give check
-            if (pos->checkers)
-                depthReduction -= 1;
+                // Reduce less if we have been on the PV
+                if (ttPv)
+                    depthReduction -= 1 + cutNode;
 
-            // Decrease the reduction for moves that have a good history score and increase it for moves with a bad score
-            depthReduction -= moveHistory / 8192;
+                // Decrease the reduction for moves that have a good history score and increase it for moves with a bad score
+                depthReduction -= moveHistory / 8192;
+            }
+            else {
+                // Fuck
+                if (cutNode)
+                    depthReduction += 2;
+
+                // Decrease the reduction for moves that have a good history score and increase it for moves with a bad score
+                depthReduction -= moveHistory / 6144;
+            }
 
             // adjust the reduction so that we can't drop into Qsearch and to prevent extensions
             depthReduction = std::clamp(depthReduction, 0, newDepth - 1);
@@ -731,7 +758,7 @@ int Negamax(int alpha, int beta, int depth, const bool cutNode, ThreadData* td, 
                             sd->counterMoves[FromTo((ss - 1)->move)] = move;
                     }
                     // Update the history heuristics based on the new best move
-                    UpdateHistories(pos, sd, ss, depth + (eval <= alpha), bestMove, &quietMoves, &noisyMoves);
+                    UpdateHistories(pos, sd, ss, depth + (eval <= alpha), bestMove, &quietMoves, &noisyMoves, rootNode);
 
                     // node (move) fails high
                     break;
@@ -772,7 +799,7 @@ int Quiescence(int alpha, int beta, ThreadData* td, SearchStack* ss) {
     Position* pos = &td->pos;
     SearchData* sd = &td->sd;
     SearchInfo* info = &td->info;
-    const bool inCheck = pos->checkers;
+    const bool inCheck = pos->getCheckers();
     // tte is an TT entry, it will store the values fetched from the TT
     TTEntry tte;
     int bestScore;
@@ -782,6 +809,7 @@ int Quiescence(int alpha, int beta, ThreadData* td, SearchStack* ss) {
     if (td->id == 0 && TimeOver(&td->info)) {
         StopHelperThreads();
         td->info.stopped = true;
+        return 0;
     }
 
     // If position is a draw return a draw score
@@ -801,7 +829,7 @@ int Quiescence(int alpha, int beta, ThreadData* td, SearchStack* ss) {
     }
 
     // ttHit is true if and only if we find something in the TT
-    const bool ttHit = ProbeTTEntry(pos->GetPoskey(), &tte);
+    const bool ttHit = ProbeTTEntry(pos->getPoskey(), &tte);
     const int ttScore = ttHit ? ScoreFromTT(tte.score, ss->ply) : SCORE_NONE;
     const Move ttMove = ttHit ? MoveFromTT(pos, tte.move) : NOMOVE;
     const uint8_t ttBound = ttHit ? BoundFromTT(tte.ageBoundPV) : uint8_t(HFNONE);
@@ -850,7 +878,7 @@ int Quiescence(int alpha, int beta, ThreadData* td, SearchStack* ss) {
 
     Movepicker mp;
     // If we aren't in check we generate just the captures, otherwise we generate all the moves
-    InitMP(&mp, pos, sd, ss, ttMove, QSEARCH);
+    InitMP(&mp, pos, sd, ss, ttMove, QSEARCH, false);
 
     Move bestmove = NOMOVE;
     Move move;

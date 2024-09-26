@@ -8,7 +8,8 @@ constexpr uint64_t Hash = 64;
 constexpr int MultiPV = 1;
 constexpr int Threads = 1;
 
-#define NAME "Andrea-0.0.3"
+#define NAME "Andrea-0.0.4"
+
 
 inline int reductions[2][64][64];
 inline int lmp_margin[64][2];

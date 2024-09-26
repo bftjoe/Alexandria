@@ -23,8 +23,8 @@ void ResetBoard(Position* pos) {
     for (int index = 0; index < 64; ++index) {
         pos->pieces[index] = EMPTY;
     }
-    pos->castleperm = 0; 
-    pos->plyFromNull = 0;
+    pos->state.castlePerm = 0;
+    pos->state.plyFromNull = 0;
 }
 
 void ResetInfo(SearchInfo* info) {
@@ -58,13 +58,13 @@ ZobristKey GeneratePosKey(const Position* pos) {
         finalkey ^= SideKey;
     }
     // include the ep square in the key
-    if (GetEpSquare(pos) != no_sq) {
-        assert(pos->enPas >= 0 && pos->enPas < 64);
-        finalkey ^= enpassant_keys[GetEpSquare(pos)];
+    if (pos->getEpSquare() != no_sq) {
+        assert(pos->getEpSquare() >= 0 && pos->getEpSquare() < 64);
+        finalkey ^= enpassant_keys[pos->getEpSquare()];
     }
-    assert(pos->castleperm >= 0 && pos->castleperm <= 15);
+    assert(pos->getCastlingPerm() >= 0 && pos->getCastlingPerm() <= 15);
     // add to the key the status of the castling permissions
-    finalkey ^= CastleKeys[pos->GetCastlingPerm()];
+    finalkey ^= CastleKeys[pos->getCastlingPerm()];
     return finalkey;
 }
 
@@ -154,16 +154,16 @@ void ParseFen(const std::string& command, Position* pos) {
     for (const char c : castle_perm) {
         switch (c) {
         case 'K':
-            (pos->castleperm) |= WKCA;
+            (pos->state.castlePerm) |= WKCA;
             break;
         case 'Q':
-            (pos->castleperm) |= WQCA;
+            (pos->state.castlePerm) |= WQCA;
             break;
         case 'k':
-            (pos->castleperm) |= BKCA;
+            (pos->state.castlePerm) |= BKCA;
             break;
         case 'q':
-            (pos->castleperm) |= BQCA;
+            (pos->state.castlePerm) |= BQCA;
             break;
         case '-':
             break;
@@ -177,18 +177,18 @@ void ParseFen(const std::string& command, Position* pos) {
         const int rank = 8 - (ep_square[1] - '0');
 
         // init enpassant square
-        pos->enPas = rank * 8 + file;
+        pos->state.enPas = rank * 8 + file;
     }
     // no enpassant square
     else
-        pos->enPas = no_sq;
+        pos->state.enPas = no_sq;
 
     // Read fifty moves counter
     if (!fifty_move.empty()) {
-        pos->fiftyMove = std::stoi(fifty_move);
+        pos->state.fiftyMove = std::stoi(fifty_move);
     }
     else {
-        pos->fiftyMove = 0;
+        pos->state.fiftyMove = 0;
     }
     // Read Hisply moves counter
     if (!HisPly.empty()) {
@@ -213,13 +213,13 @@ void ParseFen(const std::string& command, Position* pos) {
     UpdatePinsAndCheckers(pos, pos->side);
 
     // If we are in check get the squares between the checking piece and the king
-    if (pos->checkers) {
+    if (pos->getCheckers()) {
         const int kingSquare = KingSQ(pos, pos->side);
-        const int pieceLocation = GetLsbIndex(pos->checkers);
-        pos->checkMask = (1ULL << pieceLocation) | RayBetween(pieceLocation, kingSquare);
+        const int pieceLocation = GetLsbIndex(pos->getCheckers());
+        pos->state.checkMask = (1ULL << pieceLocation) | RayBetween(pieceLocation, kingSquare);
     }
     else
-        pos->checkMask = fullCheckmask;
+        pos->state.checkMask = fullCheckmask;
 
     // Update nnue accumulator to reflect board state
     nnue.accumulate(pos->accumStack[0], pos);
@@ -266,27 +266,27 @@ std::string GetFen(const Position* pos) {
     turn = pos->side == WHITE ? "w" : "b";
 
     // Parse over castling rights
-    if (pos->GetCastlingPerm() == 0)
+    if (pos->getCastlingPerm() == 0)
         castle_perm = '-';
     else {
-        if (pos->GetCastlingPerm() & WKCA)
+        if (pos->getCastlingPerm() & WKCA)
             castle_perm += "K";
-        if (pos->GetCastlingPerm() & WQCA)
+        if (pos->getCastlingPerm() & WQCA)
             castle_perm += "Q";
-        if (pos->GetCastlingPerm() & BKCA)
+        if (pos->getCastlingPerm() & BKCA)
             castle_perm += "k";
-        if (pos->GetCastlingPerm() & BQCA)
+        if (pos->getCastlingPerm() & BQCA)
             castle_perm += "q";
     }
     // parse enpassant square
-    if (GetEpSquare(pos) != no_sq) {
-        ep_square = square_to_coordinates[GetEpSquare(pos)];
+    if (pos->getEpSquare() != no_sq) {
+        ep_square = square_to_coordinates[pos->getEpSquare()];
     } else {
         ep_square = "-";
     }
 
     // Parse fifty moves counter
-    fifty_move = std::to_string(pos->Get50mrCounter());
+    fifty_move = std::to_string(pos->get50MrCounter());
     // Parse Hisply moves counter
     HisPly = std::to_string(pos->hisPly);
 
@@ -303,8 +303,6 @@ void parse_moves(const std::string& moves, Position* pos) {
         // make move on the chess board
         MakeMove<false>(move, pos);
     }
-    // don't rely on MakeUCIMove to update the position key
-    pos->posKey = GeneratePosKey(pos);
 }
 
 // Returns the bitboard of a piecetype
@@ -426,26 +424,22 @@ void UpdatePinsAndCheckers(Position* pos, const int side) {
     const Bitboard bishopsQueens = pos->GetPieceColorBB(BISHOP, side ^ 1) | pos->GetPieceColorBB(QUEEN, side ^ 1);
     const Bitboard rooksQueens = pos->GetPieceColorBB(ROOK, side ^ 1) | pos->GetPieceColorBB(QUEEN, side ^ 1);
     Bitboard sliderAttacks = (bishopsQueens & GetBishopAttacks(kingSquare, them)) | (rooksQueens & GetRookAttacks(kingSquare, them));
-    pos->pinned = 0ULL;
-    pos->checkers = pawnCheckers | knightCheckers;
+    pos->state.pinned = 0ULL;
+    pos->state.checkers = pawnCheckers | knightCheckers;
 
     while (sliderAttacks) {
         const int sq = popLsb(sliderAttacks);
-        const Bitboard blockers = (RayBetween(kingSquare, sq) | (1ULL << sq)) & pos->Occupancy(side);
+        const Bitboard blockers = RayBetween(kingSquare, sq) & pos->Occupancy(side);
         const int numBlockers = CountBits(blockers);
         if (!numBlockers)
-            pos->checkers |= 1ULL << sq;
+            pos->state.checkers |= 1ULL << sq;
         else if (numBlockers == 1)
-            pos->pinned |= blockers;
+            pos->state.pinned |= blockers;
     }
 }
 
 Bitboard RayBetween(int square1, int square2) {
     return SQUARES_BETWEEN_BB[square1][square2];
-}
-
-int GetEpSquare(const Position* pos) {
-    return pos->enPas;
 }
 
 // Calculates what the key for position pos will be after move <move>, it's a rough estimate and will fail for "special" moves such as promotions and castling
@@ -456,7 +450,7 @@ ZobristKey keyAfter(const Position* pos, const Move move) {
     const int piece = Piece(move);
     const int  captured = pos->PieceOn(targetSquare);
 
-    ZobristKey newKey = pos->GetPoskey() ^ SideKey ^ PieceKeys[piece][sourceSquare] ^ PieceKeys[piece][targetSquare];
+    ZobristKey newKey = pos->getPoskey() ^ SideKey ^ PieceKeys[piece][sourceSquare] ^ PieceKeys[piece][targetSquare];
 
     if (captured != EMPTY)
         newKey ^= PieceKeys[captured][targetSquare];
@@ -465,29 +459,17 @@ ZobristKey keyAfter(const Position* pos, const Move move) {
 }
 
 void saveBoardState(Position* pos) {
-    pos->history[pos->historyStackHead].fiftyMove = pos->fiftyMove;
-    pos->history[pos->historyStackHead].enPas = pos->enPas;
-    pos->history[pos->historyStackHead].castlePerm = pos->castleperm;
-    pos->history[pos->historyStackHead].plyFromNull = pos->plyFromNull;
-    pos->history[pos->historyStackHead].checkers = pos->checkers;
-    pos->history[pos->historyStackHead].checkMask = pos->checkMask;
-    pos->history[pos->historyStackHead].pinned = pos->pinned;
+    pos->history[pos->historyStackHead] = pos->state;
 }
 
 void restorePreviousBoardState(Position* pos)
 {
-    pos->enPas = pos->history[pos->historyStackHead].enPas;
-    pos->fiftyMove = pos->history[pos->historyStackHead].fiftyMove;
-    pos->castleperm = pos->history[pos->historyStackHead].castlePerm;
-    pos->plyFromNull = pos->history[pos->historyStackHead].plyFromNull;
-    pos->checkers = pos->history[pos->historyStackHead].checkers;
-    pos->checkMask = pos->history[pos->historyStackHead].checkMask;
-    pos->pinned = pos->history[pos->historyStackHead].pinned;
+    pos->state = pos->history[pos->historyStackHead];
 }
 
 bool hasGameCycle(Position* pos, int ply) {
 
-    int end = std::min(pos->Get50mrCounter(), pos->plyFromNull);
+    int end = std::min(pos->get50MrCounter(), pos->getPlyFromNull());
 
     if (end < 3)
         return false;

@@ -75,13 +75,13 @@ void PrintBoard(const Position* pos) {
 
     // print enpassant square
     printf("     Enpassant:   %s\n",
-        (GetEpSquare(pos) != no_sq) ? square_to_coordinates[GetEpSquare(pos)] : "no");
+        (pos->getEpSquare() != no_sq) ? square_to_coordinates[pos->getEpSquare()] : "no");
 
     // print castling rights
-    printf("     Castling:  %c%c%c%c\n", (pos->GetCastlingPerm() & WKCA) ? 'K' : '-',
-        (pos->GetCastlingPerm() & WQCA) ? 'Q' : '-',
-        (pos->GetCastlingPerm() & BKCA) ? 'k' : '-',
-        (pos->GetCastlingPerm() & BQCA) ? 'q' : '-');
+    printf("     Castling:  %c%c%c%c\n", (pos->getCastlingPerm() & WKCA) ? 'K' : '-',
+           (pos->getCastlingPerm() & WQCA) ? 'Q' : '-',
+           (pos->getCastlingPerm() & BKCA) ? 'k' : '-',
+           (pos->getCastlingPerm() & BQCA) ? 'q' : '-');
 
     std::cout << "position hisPly: " << pos->hisPly << std::endl;
 
@@ -266,7 +266,6 @@ void PrintUciOutput(const int score, const int depth, const ThreadData* td) {
         std::cout << std::setw(7) << std::right << " " << score_string;
         std::cout << std::setw(7) << std::right << std::fixed << static_cast<int>(nps / 1000.0) << "Kn/s" << " ";
 
-        // loop over the moves within a PV line
         if ( td->bestMove != NOMOVE ) {
             // print PV move
             PrintMove(td->bestMove);

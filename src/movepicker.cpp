@@ -1,7 +1,6 @@
 #include "movepicker.h"
 #include "move.h"
 #include "movegen.h"
-#include "piece_data.h"
 #include "history.h"
 
 // ScoreMoves takes a list of move as an argument and assigns a score to each move
@@ -10,6 +9,7 @@ void ScoreMoves(Movepicker* mp) {
     Position* pos = mp->pos;
     SearchData* sd = mp->sd;
     SearchStack* ss = mp->ss;
+    bool rootNode = mp->rootNode;
     // Loop through all the move in the movelist
     for (int i = mp->idx; i < moveList->count; i++) {
         const Move move = moveList->moves[i].move;
@@ -21,7 +21,7 @@ void ScoreMoves(Movepicker* mp) {
             moveList->moves[i].score = SEEValue[capturedPiece] * 16 + GetCapthistScore(pos, sd, move);
         }
         else {
-            moveList->moves[i].score = GetHistoryScore(pos, sd, move, ss);
+            moveList->moves[i].score = GetHistoryScore(pos, sd, move, ss, rootNode);
         }
     }
 }
@@ -41,7 +41,7 @@ void partialInsertionSort(MoveList* moveList, const int moveNum) {
     std::swap(moveList->moves[moveNum], moveList->moves[bestNum]);
 }
 
-void InitMP(Movepicker* mp, Position* pos, SearchData* sd, SearchStack* ss, const Move ttMove, const MovepickerType movepickerType) {
+void InitMP(Movepicker* mp, Position* pos, SearchData* sd, SearchStack* ss, const Move ttMove, const MovepickerType movepickerType, const bool rootNode) {
 
     const Move killer = ss->searchKiller;
     const Move counter = sd->counterMoves[FromTo((ss - 1)->move)];
@@ -52,6 +52,7 @@ void InitMP(Movepicker* mp, Position* pos, SearchData* sd, SearchStack* ss, cons
     mp->ss = ss;
     mp->ttMove = ttMove;
     mp->idx = 0;
+    mp->rootNode = rootNode;
     mp->stage = mp->ttMove ? PICK_TT : GEN_NOISY;
     mp->killer = killer != ttMove ? killer : NOMOVE;
     mp->counter = counter != ttMove && counter != killer ? counter : NOMOVE;
