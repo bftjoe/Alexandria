@@ -303,7 +303,7 @@ void UciLoop(int argc, char** argv) {
                 // Stop helper threads
                 StopHelperThreads();
                 // stop main thread search
-                td->info.stopped = true;
+                stopSearch = true;
             } 
             threads_state = Idle;
         }
@@ -313,8 +313,6 @@ void UciLoop(int argc, char** argv) {
             if (threads_state == Search) {
                 // Stop helper threads
                 StopHelperThreads();
-                // stop main thread search
-                td->info.stopped = true;
             }
             threads_state = Idle;
             // Join previous search thread if it exists

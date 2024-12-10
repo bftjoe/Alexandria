@@ -238,7 +238,6 @@ void InitNewGame(ThreadData* td) {
 
     // Reset plies and search info
     info->starttime = GetTimeMs();
-    info->stopped = 0;
     info->nodes = 0;
     info->seldepth = 0;
     // Clear TT

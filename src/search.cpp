@@ -92,9 +92,9 @@ void ClearForSearch(ThreadData* td) {
     info->nodes = 0;
     info->seldepth = 0;
     // Main thread only unpauses any eventual search thread
-    if (td->id == 0)
-        for (auto& helper_thread : threads_data)
-            helper_thread.info.stopped = false;
+    if (td->id == 0){
+        stopSearch = false;
+        s
 }
 
 // returns a bitboard of all the attacks to a specific square
@@ -249,7 +249,7 @@ void SearchPosition(int startDepth, int finalDepth, ThreadData* td, UciOptions* 
         averageScore = averageScore == SCORE_NONE ? score : (averageScore + score) / 2;
 
         // If we stop (not at an exact depth) we print a final info string
-        printFinalInfoString = td->info.stopped;
+        printFinalInfoString = stopSearch;
 
         // Only the main thread handles time related tasks
         if (td->id == 0) {
@@ -279,7 +279,7 @@ void SearchPosition(int startDepth, int finalDepth, ThreadData* td, UciOptions* 
             // check if we just cleared a depth and more than OptTime passed, or we used more than the give nodes
             if (StopEarly(&td->info) || NodesOver(&td->info))
                 // Stop main-thread search
-                td->info.stopped = true;
+                stopSearch = true;
         }
 
         // Print a final info string if we have to
@@ -287,7 +287,7 @@ void SearchPosition(int startDepth, int finalDepth, ThreadData* td, UciOptions* 
             PrintUciOutput(prevScore, currentDepth - 1, td, options);
 
         // stop calculating and return best move so far
-        if (td->info.stopped)
+        if (stopSearch)
             break;
 
         // If it's the main thread print the uci output
@@ -336,13 +336,12 @@ int AspirationWindowSearch(int prev_eval, int depth, ThreadData* td) {
 
         // Check if more than Maxtime passed and we have to stop
         if (td->id == 0 && TimeOver(&td->info)) {
-            StopHelperThreads();
-            td->info.stopped = true;
+            PauseHelperThreads();
             break;
         }
 
         // Stop calculating and return best move so far
-        if (td->info.stopped) break;
+        if (stopSearch) break;
 
         // We fell outside the window, so try again with a bigger window, since we failed low we can adjust beta to decrease the total window size
         if (score <= alpha) {
@@ -416,7 +415,6 @@ int Negamax(int alpha, int beta, int depth, const bool cutNode, ThreadData* td, 
     // check if more than Maxtime passed and we have to stop
     if (td->id == 0 && TimeOver(&td->info)) {
         StopHelperThreads();
-        td->info.stopped = true;
         return 0;
     }
 
@@ -754,7 +752,7 @@ int Negamax(int alpha, int beta, int depth, const bool cutNode, ThreadData* td, 
             && rootNode)
             td->nodeSpentTable[FromTo(move)] += info->nodes - nodesBeforeSearch;
 
-        if (info->stopped)
+        if (stopSearch)
             return 0;
 
         // If the score of the current move is the best we've found until now
@@ -835,7 +833,6 @@ int Quiescence(int alpha, int beta, ThreadData* td, SearchStack* ss) {
     // check if more than Maxtime passed and we have to stop
     if (td->id == 0 && TimeOver(&td->info)) {
         StopHelperThreads();
-        td->info.stopped = true;
         return 0;
     }
 
@@ -941,7 +938,7 @@ int Quiescence(int alpha, int beta, ThreadData* td, SearchStack* ss) {
         // take move back
         UnmakeMove(move, pos);
 
-        if (info->stopped)
+        if (stopSearch)
             return 0;
 
         // If the score of the current move is the best we've found until now

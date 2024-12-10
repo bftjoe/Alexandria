@@ -34,7 +34,6 @@ void ResetInfo(SearchInfo* info) {
     info->stoptimeOpt = 0;
     info->stoptimeMax = 0;
     info->movestogo = -1;
-    info->stopped = false;
     info->timeset = false;
     info->movetimeset = false;
     info->nodeset = false;

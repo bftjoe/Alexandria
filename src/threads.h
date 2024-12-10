@@ -5,10 +5,9 @@
 #include <thread>
 #include "search.h"
 
-enum state {
-    Idle,
-    Search,
-};
+atomic<bool> stopSearch = true;
+atomic<unsigned> stoppedWorkers = 0;
+atomic<bool> allWorkersPaused = true;
 // global vector of search threads
 inline std::vector<std::thread> threads;
 // global vector of thread_datas
@@ -22,16 +21,8 @@ inline std::vector<ThreadData> threads_data;
     return nodes;
 }
 
+// Pause helper threads
 inline void StopHelperThreads() {
-    // Stop helper threads
-    for (auto& td : threads_data) {
-        td.info.stopped = true;
-    }
-
-    for (auto& th : threads) {
-        if (th.joinable())
-            th.join();
-    }
-
-    threads.clear();
+    pauseSearch = true;
+    allWorkersPaused.wait(false);
 }
