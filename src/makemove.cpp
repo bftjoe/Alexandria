@@ -18,7 +18,7 @@ void ClearPiece(const int piece, const int from, Position* pos) {
     assert(piece != EMPTY);
     // Do this first because if we happened to have moved the king we first need to get1lsb the king bitboard before removing it
     if constexpr(UPDATE){
-        std::array<bool, 2> flip({get_file[KingSQ(pos, WHITE)] > 3, get_file[KingSQ(pos, BLACK)] > 3});
+        std::array<bool, 2> flip({get_file(KingSQ(pos, WHITE)) > 3, get_file(KingSQ(pos, BLACK)) > 3});
         auto wkSq = KingSQ(pos, WHITE);
         auto bkSq = KingSQ(pos, BLACK);
         pos->AccumulatorTop().AppendSubIndex(piece, from, wkSq, bkSq, flip);
@@ -56,7 +56,7 @@ void AddPiece(const int piece, const int to, Position* pos) {
         HashKey(pos->blackNonPawnKey, PieceKeys[piece][to]);
     // Do this last because if we happened to have moved the king we first need to re-add to the piece bitboards least we get1lsb an empty bitboard
     if constexpr(UPDATE){
-        std::array<bool, 2> flip({get_file[KingSQ(pos, WHITE)] > 3, get_file[KingSQ(pos, BLACK)] > 3});
+        std::array<bool, 2> flip({get_file(KingSQ(pos, WHITE)) > 3, get_file(KingSQ(pos, BLACK)) > 3});
         auto wkSq = KingSQ(pos, WHITE);
         auto bkSq = KingSQ(pos, BLACK);
         pos->AccumulatorTop().AppendAddIndex(piece, to, wkSq, bkSq, flip);
@@ -269,8 +269,8 @@ template void MakeMove<true>(const Move move, Position* pos);
 template void MakeMove<false>(const Move move, Position* pos);
 
 bool shouldFlip(int from, int to) {
-    const bool prevFlipped = get_file[from] > 3;
-    const bool flipped = get_file[to] > 3;
+    const bool prevFlipped = get_file(from) > 3;
+    const bool flipped = get_file(to) > 3;
 
     if (prevFlipped != flipped)
         return true;

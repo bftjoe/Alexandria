@@ -6,22 +6,15 @@
 // if we don't have enough material to mate consider the position a draw
 [[nodiscard]] inline bool MaterialDraw(const Position* pos) {
     // If we only have kings on the board then it's a draw
-    if (pos->PieceCount() == 2)
-        return true;
-    // KN v K, KB v K
-    else if (pos->PieceCount() == 3 && ((CountBits(GetPieceBB(pos, KNIGHT)) == 1) || (CountBits(GetPieceBB(pos, BISHOP)) == 1)))
-        return true;
-    // If we have 4 pieces on the board
-    else if (pos->PieceCount() == 4) {
-        // KNN v K, KN v KN
-        if ((CountBits(GetPieceBB(pos, KNIGHT)) == 2))
-            return true;
-        // KB v KB
-        else if (((CountBits(GetPieceBB(pos, BISHOP)) == 2)) && CountBits(pos->GetPieceColorBB(BISHOP, WHITE)) == 1)
-            return true;
+    switch(pos->PieceCount()){
+        // K v K
+        case 2: return true;
+        // KN v K or KB v K
+        case 3: return (CountBits(GetPieceBB(pos, KNIGHT)) == 1) || (CountBits(GetPieceBB(pos, BISHOP)) == 1); 
+        // (KNN v K, KN v KN) || KB v KB
+        case 4: return (CountBits(GetPieceBB(pos, KNIGHT)) == 2) || (CountBits(GetPieceBB(pos, BISHOP)) == 2 && CountBits(pos->GetPieceColorBB(BISHOP, WHITE)) == 1);
+        default: return false;
     }
-
-    return false;
 }
 
 [[nodiscard]] static inline int ScaleMaterial(const Position* pos, int eval) {

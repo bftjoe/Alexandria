@@ -21,6 +21,9 @@ using ZobristKey = uint64_t;
 using Move = uint32_t;
 using PackedMove = uint16_t;
 
+using u8 = uint8_t;
+using u64 = uint64_t;
+
 constexpr Move NOMOVE = 0;
 constexpr int MAXPLY = 256;
 constexpr int MAXDEPTH = MAXPLY;
@@ -42,7 +45,10 @@ enum {
 };
 
 // Lookup to get the rank of a square
-constexpr int get_rank[64] = { 7, 7, 7, 7, 7, 7, 7, 7,
+constexpr u8 get_rank(u8 sq){
+    return 7 - (sq / 8);
+}
+/* constexpr u8 get_rank [64] = { 7, 7, 7, 7, 7, 7, 7, 7,
                                6, 6, 6, 6, 6, 6, 6, 6,
                                5, 5, 5, 5, 5, 5, 5, 5,
                                4, 4, 4, 4, 4, 4, 4, 4,
@@ -50,9 +56,12 @@ constexpr int get_rank[64] = { 7, 7, 7, 7, 7, 7, 7, 7,
                                2, 2, 2, 2, 2, 2, 2, 2,
                                1, 1, 1, 1, 1, 1, 1, 1,
                                0, 0, 0, 0, 0, 0, 0, 0 };
+*/
 
-// Lookup to get the file of a square
-constexpr int get_file[64] = { 0, 1, 2, 3, 4, 5, 6, 7,
+constexpr u8 get_file(u8 sq) {
+    return sq % 8;
+}
+/* constexpr u8 get_file[64] = { 0, 1, 2, 3, 4, 5, 6, 7,
                                0, 1, 2, 3, 4, 5, 6, 7,
                                0, 1, 2, 3, 4, 5, 6, 7,
                                0, 1, 2, 3, 4, 5, 6, 7,
@@ -60,9 +69,9 @@ constexpr int get_file[64] = { 0, 1, 2, 3, 4, 5, 6, 7,
                                0, 1, 2, 3, 4, 5, 6, 7,
                                0, 1, 2, 3, 4, 5, 6, 7,
                                0, 1, 2, 3, 4, 5, 6, 7 };
-
+*/
 // Lookup to get the diagonal of a square
-constexpr int get_diagonal[64] = { 14, 13, 12, 11, 10,  9,  8,  7,
+constexpr u8 get_diagonal[64] = { 14, 13, 12, 11, 10,  9,  8,  7,
                                    13, 12, 11, 10,  9,  8,  7,  6,
                                    12, 11, 10,  9,  8,  7,  6,  5,
                                    11, 10,  9,  8,  7,  6,  5,  4,
@@ -105,10 +114,10 @@ enum {
 };
 
 // Lookup to get the color from a piece
-constexpr int Color[12] = { WHITE, WHITE, WHITE, WHITE, WHITE, WHITE,
+constexpr u8 Color[12] = { WHITE, WHITE, WHITE, WHITE, WHITE, WHITE,
                             BLACK, BLACK, BLACK, BLACK, BLACK, BLACK };
 
-constexpr int PieceType[12] = { PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING,
+constexpr u8 PieceType[12] = { PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING,
                                 PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING };
 
 // Contains the material Values of the pieces

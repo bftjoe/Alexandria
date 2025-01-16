@@ -125,7 +125,7 @@ void NNUE::update(Accumulator *acc, Position *pos) {
 void NNUE::Pov_Accumulator::refresh(Position *pos) {
     // probe the finny table for a cached state
     const auto kingSq = KingSQ(pos, pov);
-    const bool flip = get_file[KingSQ(pos, pov)] > 3;
+    const bool flip = get_file(KingSQ(pos, pov)) > 3;
     const int kingBucket = getBucket(kingSq, pov);
     FinnyTableEntry* cachedEntry = &pos->FTable[pov].Table[kingBucket][flip];
     this->values = cachedEntry->accumCache.perspective[pov].values;

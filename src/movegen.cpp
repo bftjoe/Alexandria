@@ -101,7 +101,7 @@ static inline void PseudoLegalPawnMoves(Position* pos, int color, MoveList* list
         while (captBB1) {
             const int to = popLsb(captBB1);
             const int from = to - north + 1;
-            if (get_rank[to] != (color == WHITE ? 7 : 0))
+            if (get_rank(to) != (color == WHITE ? 7 : 0))
                 AddMove(encode_move(from, to, pawnType, Movetype::Capture), list);
             else {
                 AddMove(encode_move(from, to, pawnType, (Movetype::queenPromo | Movetype::Capture)), list);
@@ -114,7 +114,7 @@ static inline void PseudoLegalPawnMoves(Position* pos, int color, MoveList* list
         while (captBB2) {
             const int to = popLsb(captBB2);
             const int from = to - north - 1;
-            if (get_rank[to] != (color == WHITE ? 7 : 0))
+            if (get_rank(to) != (color == WHITE ? 7 : 0))
                 AddMove(encode_move(from, to, pawnType, Movetype::Capture), list);
             else {
                 AddMove(encode_move(from, to, pawnType, (Movetype::queenPromo | Movetype::Capture)), list);
@@ -309,8 +309,8 @@ bool IsPseudoLegal(Position* pos, Move move) {
                 if (pos->PieceOn(from + NORTH) != EMPTY)
                     return false;
 
-                if (   (pos->side == WHITE && get_rank[from] != 1)
-                    || (pos->side == BLACK && get_rank[from] != 6))
+                if (   (pos->side == WHITE && get_rank(from) != 1)
+                    || (pos->side == BLACK && get_rank(from) != 6))
                     return false;
             }
             else if (!isCapture(move)) {
@@ -328,17 +328,17 @@ bool IsPseudoLegal(Position* pos, Move move) {
                 return false;
 
             if (isPromo(move)) {
-                if (   (pos->side == WHITE && get_rank[from] != 6)
-                    || (pos->side == BLACK && get_rank[from] != 1))
+                if (   (pos->side == WHITE && get_rank(from) != 6)
+                    || (pos->side == BLACK && get_rank(from) != 1))
                     return false;
 
-                if (   (pos->side == WHITE && get_rank[to] != 7)
-                    || (pos->side == BLACK && get_rank[to] != 0))
+                if (   (pos->side == WHITE && get_rank(to) != 7)
+                    || (pos->side == BLACK && get_rank(to) != 0))
                     return false;
             }
             else {
-                if (   (pos->side == WHITE && get_rank[from] >= 6)
-                    || (pos->side == BLACK && get_rank[from] <= 1))
+                if (   (pos->side == WHITE && get_rank(from) >= 6)
+                    || (pos->side == BLACK && get_rank(from) <= 1))
                     return false;
             }
             break;
@@ -360,8 +360,8 @@ bool IsPseudoLegal(Position* pos, Move move) {
             break;
 
         case ROOK:
-            if (   get_file[from] != get_file[to]
-                && get_rank[from] != get_rank[to])
+            if (   get_file(from) != get_file(to)
+                && get_rank(from) != get_rank(to))
                 return false;
 
             if (RayBetween(from, to) & pos->Occupancy(BOTH))
@@ -370,8 +370,8 @@ bool IsPseudoLegal(Position* pos, Move move) {
             break;
 
         case QUEEN:
-            if (   get_file[from] != get_file[to]
-                && get_rank[from] != get_rank[to]
+            if (   get_file(from) != get_file(to)
+                && get_rank(from) != get_rank(to)
                 && get_diagonal[from] != get_diagonal[to]
                 && get_antidiagonal(from) != get_antidiagonal(to))
                 return false;

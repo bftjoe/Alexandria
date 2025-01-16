@@ -1,5 +1,6 @@
 #pragma once
 
+#include <atomic>
 #include <cstdint>
 #include "history.h"
 #include "position.h"
@@ -7,12 +8,12 @@
 
 struct SearchStack {
     // don't init. search will init before entering the negamax method
+    u8 doubleExtensions;
     int16_t staticEval;
     Move excludedMove;
     Move move;
     int ply;
     Move searchKiller;
-    int doubleExtensions;
     int (*contHistEntry)[12 * 64];
 };
 
@@ -36,16 +37,28 @@ struct PvTable {
 // These 2 tables need to be cleaned after each search. We initialize (and subsequently clean them) elsewhere
 inline PvTable pvTable;
 inline uint64_t nodeSpentTable[64 * 64];
+inline SearchInfo info;
+inline std::atomic<bool> stopped = false;
+
+inline bool stop(){
+    return stopped.load(std::memory_order_relaxed);
+}
+
+inline void setStop(bool s){
+    stopped.store(s, std::memory_order_relaxed);
+}
 
 // a collection of all the data a thread needs to conduct a search
 struct ThreadData {
     int id = 0;
     Position pos;
     SearchData sd;
-    SearchInfo info;
     int RootDepth;
     int nmpPlies;
+    u64 nodes;
 };
+
+inline ThreadData mainTD;
 
 // ClearForSearch handles the cleaning of the thread data from a clean state
 void ClearForSearch(ThreadData* td);

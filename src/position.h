@@ -20,14 +20,14 @@
 #define PACK(__Declaration__) \
     __pragma(pack(push, 1)) __Declaration__ __pragma(pack(pop))
 #endif
-#define get_antidiagonal(sq) (get_rank[sq] + get_file[sq])
+#define get_antidiagonal(sq) (get_rank(sq) + get_file(sq))
 
 struct BoardState {
-    int castlePerm = 15;
-    int capture = EMPTY;
-    int enPas = 0;
-    int fiftyMove = 0;
-    int plyFromNull = 0;
+    u8 castlePerm = 15;
+    u8 capture = EMPTY;
+    u8 enPas = 0;
+    u8 fiftyMove = 0;
+    u8 plyFromNull = 0;
     Bitboard checkers = 0ULL;
     Bitboard pinned;
 }; // stores a move and the state of the game before that move is made
@@ -35,7 +35,7 @@ struct BoardState {
 
 struct Position {
 public:
-    int pieces[64]; // array that stores for every square of the board what piece is on it
+    u8 pieces[64]; // array that stores for every square of the board what piece is on it
 
     int side = -1; // what side has to move
 
@@ -146,14 +146,10 @@ struct SearchInfo {
     bool movetimeset = false;
 
     int movestogo = -1;
-    uint64_t nodes = 0;
     uint64_t nodeslimit = 0;
-
-    bool stopped = false;
 };
 
-// castling rights update constants
-constexpr int castling_rights[64] = {
+constexpr u8 castling_rights[64] = {
      7, 15, 15, 15,  3, 15, 15, 11,
     15, 15, 15, 15, 15, 15, 15, 15,
     15, 15, 15, 15, 15, 15, 15, 15,
@@ -191,7 +187,7 @@ void ParseFen(const std::string& command, Position* pos);
 // Parse a string of moves in coordinate format and plays them
 void parse_moves(const std::string& moves, Position* pos);
 
-void ResetInfo(SearchInfo* info);
+void ResetInfo();
 
 // Retrieve a generic piece (useful when we don't know what type of piece we are dealing with
 [[nodiscard]] Bitboard GetPieceBB(const Position* pos, const int piecetype);
