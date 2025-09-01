@@ -177,15 +177,15 @@ void PrintUciOutput(const int score, const int depth, const ThreadData* td, cons
     uint64_t nps = nodes / (time + !time) * 1000;
     if (print_uci) {
         if (score > -MATE_SCORE && score < -MATE_FOUND)
-            std::cout << "info score mate " << -(score + MATE_SCORE) / 2 << " depth " << depth << " seldepth " << td->info.seldepth << " multipv " << options->MultiPV << " nodes " << nodes <<
+            std::cout << "info score mate " << -(score + MATE_SCORE) / 2 << " depth " << depth << " multipv " << options->MultiPV << " nodes " << nodes <<
             " nps " << nps << " time " << GetTimeMs() - td->info.starttime << " pv ";
 
         else if (score > MATE_FOUND && score < MATE_SCORE)
-            std::cout << "info score mate " << (MATE_SCORE - score) / 2 + 1 << " depth " << depth << " seldepth " << td->info.seldepth << " multipv " << options->MultiPV << " nodes " << nodes <<
+            std::cout << "info score mate " << (MATE_SCORE - score) / 2 + 1 << " depth " << depth << " multipv " << options->MultiPV << " nodes " << nodes <<
             " nps " << nps << " time " << GetTimeMs() - td->info.starttime << " pv ";
 
         else
-            std::cout << "info score cp " << int(score / 2.5) << " depth " << depth << " seldepth " << td->info.seldepth << " multipv " << options->MultiPV << " nodes " << nodes <<
+            std::cout << "info score cp " << int(score / 2.5) << " depth " << depth << " multipv " << options->MultiPV << " nodes " << nodes <<
             " nps " << nps << " hashfull "<< GetHashfull() << " time " << GetTimeMs() - td->info.starttime << " pv ";
 
         // loop over the moves within a PV line
@@ -263,7 +263,6 @@ void PrintUciOutput(const int score, const int depth, const ThreadData* td, cons
 
         // Pretty print search info
         std::cout << std::setw(3) << depth << "/";
-        std::cout << std::left << std::setw(3) << td->info.seldepth;
 
         std::cout << std::right << std::setw(8) << time_string;
         std::cout << std::right << std::setw(10) << node_string;

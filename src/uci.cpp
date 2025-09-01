@@ -153,11 +153,6 @@ bool ParseGo(const std::string& line, SearchInfo* info, Position* pos) {
         if (tokens.at(i) == "depth") {
             depth = std::stoi(tokens[i + 1]);
         }
-
-        if (tokens.at(i) == "nodes") {
-            info->nodeset = true;
-            info->nodeslimit = std::stoi(tokens[i + 1]);
-        }
     }
 
     info->starttime = GetTimeMs();

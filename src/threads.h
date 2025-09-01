@@ -23,15 +23,12 @@ struct SearchInfo {
     uint64_t stoptimeMax = 0;
     // max depth to reach for depth limited searches
     int depth = -1;
-    int seldepth = -1;
     // types of search limits
     bool timeset = false;
-    bool nodeset = false;
     bool movetimeset = false;
 
     int movestogo = 0;
     uint64_t nodes = 0;
-    uint64_t nodeslimit = 0;
 
     bool stopped = false;
 
@@ -45,7 +42,6 @@ struct SearchInfo {
         stopped = false;
         timeset = false;
         movetimeset = false;
-        nodeset = false;
     }
 
     inline void print(){
@@ -53,8 +49,7 @@ struct SearchInfo {
         std::cout << "stopOpt: " << stoptimeOpt << " ";
         std::cout << "stopMax: " << stoptimeMax << " ";
         std::cout << "depth: " << depth << " ";
-        std::cout << "timeset: " << timeset << " ";
-        std::cout << "nodeset: " << nodeset << std::endl;
+        std::cout << "timeset: " << timeset << std::endl;
     }
 };
 
