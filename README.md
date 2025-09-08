@@ -1,12 +1,15 @@
  ## Building
+ 
+ A recent g++ or clang compiler is required. The default compiler is g++ and it must be version 15 or later.
+ 
  Clone the fchess repository.
 ```bash
-$ git clone https://github.com/PGG106/Alexandria
+$ git https://github.com/bftjoe/fchess.git
 $ cd fchess
 ```
 Download the latest neural network from this [repository](https://github.com/PGG106/Alexandria-networks/releases) and save it in the source root as `nn.net`.
 ```bash
-$ make 
+$ make
 $ ./fchess
 ```
  ## How to use the engine
