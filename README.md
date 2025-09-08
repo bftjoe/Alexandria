@@ -1,6 +1,6 @@
  ## Building
  
- A recent g++ or clang compiler is required. The default compiler is g++ and it must be version 15 or later.
+ g++ compiler version 15 or later is required. As embed support in c++ mode is required, no other compilers are supported.
  
  Clone the fchess repository.
 ```bash

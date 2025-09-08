@@ -1,0 +1,30 @@
+name: gcc
+
+on:
+  push:
+    branches:
+       - main
+  pull_request:
+    branches:
+       - main
+
+jobs:
+  gcc:
+    strategy:
+      fail-fast: false
+      matrix:
+        version: [15, 16]
+
+    runs-on: ubuntu-latest
+
+    container:
+      image: ghcr.io/mattkretz/cplusplus-ci/gcc${{ matrix.version }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run test suite
+        run: |
+          curl -sOL https://github.com/PGG106/Alexandria-networks/releases/latest/download/nn.net
+          make -j build=release
+          ./fchess* bench

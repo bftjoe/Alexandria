@@ -3,7 +3,7 @@ _ROOT       := $(_THIS)
 CXX         := g++
 TARGET      := fchess
 WARNINGS     = -Wall -Wcast-qual -Wextra -Wshadow -Wdouble-promotion -Wformat=2 -Wnull-dereference -Wlogical-op -Wold-style-cast -Wundef -pedantic
-CXXFLAGS    := -funroll-loops -O3 -flto -flto-partition=one -fno-exceptions -std=gnu++2c -DNDEBUG $(WARNINGS)
+CXXFLAGS    := -funroll-loops -O3 -flto -flto-partition=one -fno-exceptions -std=c++2c -DNDEBUG $(WARNINGS)
 NATIVE       = -march=native
 AVX2FLAGS    = -DUSE_AVX2 -DUSE_SIMD -mavx2 -mbmi -mfma
 BMI2FLAGS    = -DUSE_AVX2 -DUSE_SIMD -mavx2 -mbmi -mbmi2 -mfma
@@ -17,7 +17,7 @@ TMPDIR = .tmp
 
 # Detect Clang
 ifeq ($(CXX), clang++)
-CXXFLAGS = -funroll-loops -O3 -flto -fuse-ld=lld -fno-exceptions -std=gnu++2c -DNDEBUG
+CXXFLAGS = -funroll-loops -O3 -flto -fuse-ld=lld -fno-exceptions -std=c++2c -DNDEBUG
 endif
 
 # Detect Windows
@@ -120,7 +120,7 @@ ifeq ($(build), x86-64-vnni512)
 endif
 
 ifeq ($(build), debug)
-	CXXFLAGS = -O3 -g3 -fno-omit-frame-pointer -std=gnu++2c -fsanitize=address -fsanitize=leak -fsanitize=undefined
+	CXXFLAGS = -O3 -g3 -fno-omit-frame-pointer -std=c++2c -fsanitize=address -fsanitize=leak -fsanitize=undefined
 	NATIVE   = -msse -msse3 -mpopcnt
 	FLAGS    = -lpthread -lstdc++
 	CXXFLAGS += $(FLAGS_DETECTED)
@@ -128,7 +128,7 @@ endif
 
 # valgrind doesn't like avx512 code
 ifeq ($(build), debug-avx2)
-	CXXFLAGS = -O3 -g3 -fno-omit-frame-pointer -std=gnu++2c -fsanitize=address -fsanitize=leak -fsanitize=undefined
+	CXXFLAGS = -O3 -g3 -fno-omit-frame-pointer -std=c++2c -fsanitize=address -fsanitize=leak -fsanitize=undefined
 	NATIVE   = -msse -msse3 -mpopcnt
 	FLAGS    = -lpthread -lstdc++
 	CXXFLAGS += $(AVX2FLAGS)
