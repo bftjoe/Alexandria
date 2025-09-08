@@ -2,7 +2,7 @@ _THIS       := $(realpath $(dir $(abspath $(lastword $(MAKEFILE_LIST)))))
 _ROOT       := $(_THIS)
 EVALFILE     = nn.net
 CXX         := g++
-TARGET      := Alexandria
+TARGET      := fchess
 WARNINGS     = -Wall -Wcast-qual -Wextra -Wshadow -Wdouble-promotion -Wformat=2 -Wnull-dereference -Wlogical-op -Wold-style-cast -Wundef -pedantic
 CXXFLAGS    := -funroll-loops -O3 -flto -flto-partition=one -fno-exceptions -std=gnu++2a -DNDEBUG $(WARNINGS)
 NATIVE       = -march=native
@@ -12,7 +12,7 @@ AVX512FLAGS  = -DUSE_AVX512 -DUSE_SIMD -mavx512f -mavx512bw -mfma
 VNNI512FLAGS = -DUSE_VNNI512 -DUSE_AVX512 -DUSE_SIMD -mavx512f -mavx512bw -mavx512vnni -mfma
 
 # engine name
-NAME        := Alexandria
+NAME        := fchess
 
 TMPDIR = .tmp
 
@@ -143,9 +143,9 @@ ifneq ($(findstring gcc, $(CCX)),)
 endif
 
 ifneq ($(findstring clang, $(CCX)),)
-	PGOMERGE = llvm-profdata merge -output=alexandria.profdata *.profraw
+	PGOMERGE = llvm-profdata merge -output=fchess.profdata *.profraw
 	PGOGEN   = -fprofile-instr-generate
-	PGOUSE   = -fprofile-instr-use=alexandria.profdata
+	PGOUSE   = -fprofile-instr-use=fchess.profdata
 endif
 
 # Add network name and Evalfile
