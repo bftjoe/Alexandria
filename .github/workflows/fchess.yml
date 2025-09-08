@@ -1,14 +1,14 @@
-name: Alexandria
+name: fchess
 on:
   push:
     branches:
-      - master
+      - main
   pull_request:
     branches:
-      - master
+      - main
 
 jobs:
-  Alexandria:
+  fchess:
     name: ${{ matrix.config.name }}
     runs-on: ${{ matrix.config.os }}
     strategy:
@@ -57,14 +57,14 @@ jobs:
 
       - name: make
         if: runner.os == 'Linux'
-        run: make build=debug EVALFILE=nn.net -j
+        run: make build=debug -j
 
       - name: make build windows
         if: runner.os == 'Windows'
-        run: make build=release EVALFILE=nn.net -j
+        run: make build=release -j
 
       - name: Bench
         run: |
-          ./Alexandria* bench
+          ./fchess* bench
 
 
