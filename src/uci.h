@@ -24,7 +24,7 @@ inline bool tryhardmode = false;
 void ParsePosition(const std::string& command, Position* pos);
 
 // parse UCI "go" command
-[[nodiscard]] bool ParseGo(const std::string& line, SearchInfo* info, Position* pos);
+[[nodiscard]] bool ParseGo(const std::string& line, Position* pos);
 
 // main UCI loop
 void UciLoop(int argc, char** argv);
