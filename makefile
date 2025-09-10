@@ -134,44 +134,10 @@ ifeq ($(build), debug-avx2)
 	CXXFLAGS += $(AVX2FLAGS)
 endif
 
-# Get what pgo flags we should be using
+EXE := $(NAME)$(SUFFIX)
 
-ifneq ($(findstring gcc, $(CCX)),)
-	PGOGEN   = -fprofile-generate
-	PGOUSE   = -fprofile-use
-endif
+all:
+	$(CXX) $(CXXFLAGS) $(NATIVE) -o $(EXE) src/attack.cpp src/history.cpp src/init.cpp src/io.cpp src/main.cpp src/makemove.cpp src/movegen.cpp src/movepicker.cpp src/nnue.cpp src/position.cpp src/search.cpp src/ttable.cpp src/uci.cpp $(FLAGS)
 
-ifneq ($(findstring clang, $(CCX)),)
-	PGOMERGE = llvm-profdata merge -output=fchess.profdata *.profraw
-	PGOGEN   = -fprofile-instr-generate
-	PGOUSE   = -fprofile-instr-use=fchess.profdata
-endif
-
-SOURCES := $(wildcard src/*.cpp)
-OBJECTS := $(patsubst %.cpp,$(TMPDIR)/%.o,$(SOURCES))
-DEPENDS := $(patsubst %.cpp,$(TMPDIR)/%.d,$(SOURCES))
-EXE	    := $(NAME)$(SUFFIX)
-
-all: $(TARGET)
 clean:
-	@rm -rf $(TMPDIR) *.o  $(DEPENDS) *.d
-
-$(TARGET): $(OBJECTS)
-	$(CXX) $(CXXFLAGS) $(NATIVE) -MMD -MP -o $(EXE) $^ $(FLAGS)
-
-$(TMPDIR)/%.o: %.cpp | $(TMPDIR)
-	$(CXX) $(CXXFLAGS) $(NATIVE) -MMD -MP -c $< -o $@ $(FLAGS)
-
-$(TMPDIR):
-	$(MKDIR) "$(TMPDIR)" "$(TMPDIR)/src"
-
--include $(DEPENDS)
-
-
-# Usual disservin yoink for makefile related stuff
-pgo:
-	$(CXX) $(CXXFLAGS) $(PGO_GEN) $(NATIVE) $(INSTRUCTIONS) -MMD -MP -o $(EXE) $(SOURCES) $(LDFLAGS)
-	./$(EXE) bench
-	$(PGO_MERGE)
-	$(CXX) $(CXXFLAGS) $(NATIVE) $(INSTRUCTIONS) $(PGO_USE) -MMD -MP -o $(EXE) $(SOURCES) $(LDFLAGS)
-	@rm -f *.gcda *.profraw *.o $(DEPENDS) *.d  profdata
+	@rm -rf $(NAME)$(SUFFIX)
