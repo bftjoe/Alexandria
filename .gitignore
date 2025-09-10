@@ -432,7 +432,7 @@ FodyWeavers.xsd
 .vscode/settings.json
 
 # Others
-Alexandria*
+/fchess*
 perf.data
 perf.data.old
 

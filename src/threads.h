@@ -23,26 +23,21 @@ struct SearchInfo {
     uint64_t stoptimeMax = 0;
     // max depth to reach for depth limited searches
     int depth = -1;
-    int seldepth = -1;
+
     // types of search limits
     bool timeset = false;
     bool nodeset = false;
     bool movetimeset = false;
 
     int movestogo = 0;
-    uint64_t nodes = 0;
     uint64_t nodeslimit = 0;
-
-    bool stopped = false;
 
     inline void Reset() {
         depth = 0;
-        nodes = 0;
         starttime = 0;
         stoptimeOpt = 0;
         stoptimeMax = 0;
         movestogo = 0;
-        stopped = false;
         timeset = false;
         movetimeset = false;
         nodeset = false;
@@ -57,6 +52,8 @@ struct SearchInfo {
         std::cout << "nodeset: " << nodeset << std::endl;
     }
 };
+
+inline SearchInfo info;
 
 struct SearchData {
     int searchHistory[2][64 * 64] = {};
@@ -73,12 +70,13 @@ struct SearchData {
 // a collection of all the data a thread needs to conduct a search
 struct ThreadData {
     int id = 0;
+    bool stopped = false;
     Position pos;
-    SearchData sd;
-    SearchInfo info;
     int RootDepth;
     int nmpPlies;
-
+    
+    uint64_t nodes = 0;
+    SearchData sd;
     NNUE::FinnyTable FTable{};
 
     inline void resetFinnyTable() {
@@ -94,7 +92,7 @@ inline std::vector<ThreadData> threads_data;
 [[nodiscard]] inline uint64_t GetTotalNodes() {
     uint64_t nodes = 0ULL;
     for (const auto& td : threads_data) {
-        nodes += td.info.nodes;
+        nodes += td.nodes;
     }
     return nodes;
 }
@@ -102,7 +100,7 @@ inline std::vector<ThreadData> threads_data;
 inline void StopHelperThreads() {
     // Stop helper threads
     for (auto& td : threads_data) {
-        td.info.stopped = true;
+        td.stopped = true;
     }
 
     for (auto& th : threads) {

@@ -4,22 +4,18 @@
 #include "position.h"
 #include <cstdint>
 #include <cstring>
-#include "incbin/incbin.h"
 #include "io.h"
 
-// Macro to embed the default efficiently updatable neural network (NNUE) file
-// data in the engine binary (using incbin.h, by Dale Weiler).
-// This macro invocation will declare the following three variables
-//     const unsigned char        gEVALData[];  // a pointer to the embedded data
-//     const unsigned char *const gEVALEnd;     // a marker to the end
-//     const unsigned int         gEVALSize;    // the size of the embedded file
-// Note that this does not work in Microsoft Visual Studio.
-#if !defined(_MSC_VER)
-INCBIN(EVAL, EVALFILE);
+// embed the default efficiently updatable neural network (NNUE) file
+// data in the engine binary
+#if defined(__cpp_pp_embed)
+const unsigned char gEVALData[] = {
+#embed "../nn.net"
+};
+const unsigned int gEVALDataSize = sizeof(gEVALData) / sizeof(gEVALData[0]);
+const unsigned char* const gEVALEnd = &gEVALData[gEVALDataSize];
 #else
-const unsigned char gEVALData[1] = {};
-const unsigned char* const gEVALEnd = &gEVALData[1];
-const unsigned int gEVALSize = 1;
+#error "a compiler with embed support is required, use latest g++ or clang"
 #endif
 
 const Network *net;

@@ -1,10 +1,9 @@
 _THIS       := $(realpath $(dir $(abspath $(lastword $(MAKEFILE_LIST)))))
 _ROOT       := $(_THIS)
-EVALFILE     = nn.net
 CXX         := g++
-TARGET      := Alexandria
+TARGET      := fchess
 WARNINGS     = -Wall -Wcast-qual -Wextra -Wshadow -Wdouble-promotion -Wformat=2 -Wnull-dereference -Wlogical-op -Wold-style-cast -Wundef -pedantic
-CXXFLAGS    := -funroll-loops -O3 -flto -flto-partition=one -fno-exceptions -std=gnu++2a -DNDEBUG $(WARNINGS)
+CXXFLAGS    := -funroll-loops -O3 -flto -flto-partition=one -fno-exceptions -std=c++2c -DNDEBUG $(WARNINGS)
 NATIVE       = -march=native
 AVX2FLAGS    = -DUSE_AVX2 -DUSE_SIMD -mavx2 -mbmi -mfma
 BMI2FLAGS    = -DUSE_AVX2 -DUSE_SIMD -mavx2 -mbmi -mbmi2 -mfma
@@ -12,13 +11,13 @@ AVX512FLAGS  = -DUSE_AVX512 -DUSE_SIMD -mavx512f -mavx512bw -mfma
 VNNI512FLAGS = -DUSE_VNNI512 -DUSE_AVX512 -DUSE_SIMD -mavx512f -mavx512bw -mavx512vnni -mfma
 
 # engine name
-NAME        := Alexandria
+NAME        := fchess
 
 TMPDIR = .tmp
 
 # Detect Clang
 ifeq ($(CXX), clang++)
-CXXFLAGS = -funroll-loops -O3 -flto -fuse-ld=lld -fno-exceptions -std=gnu++2a -DNDEBUG
+CXXFLAGS = -funroll-loops -O3 -flto -fuse-ld=lld -fno-exceptions -std=c++2c -DNDEBUG
 endif
 
 # Detect Windows
@@ -121,7 +120,7 @@ ifeq ($(build), x86-64-vnni512)
 endif
 
 ifeq ($(build), debug)
-	CXXFLAGS = -O3 -g3 -fno-omit-frame-pointer -std=gnu++2a -fsanitize=address -fsanitize=leak -fsanitize=undefined
+	CXXFLAGS = -O3 -g3 -fno-omit-frame-pointer -std=c++2c -fsanitize=address -fsanitize=leak -fsanitize=undefined
 	NATIVE   = -msse -msse3 -mpopcnt
 	FLAGS    = -lpthread -lstdc++
 	CXXFLAGS += $(FLAGS_DETECTED)
@@ -129,53 +128,16 @@ endif
 
 # valgrind doesn't like avx512 code
 ifeq ($(build), debug-avx2)
-	CXXFLAGS = -O3 -g3 -fno-omit-frame-pointer -std=gnu++2a -fsanitize=address -fsanitize=leak -fsanitize=undefined
+	CXXFLAGS = -O3 -g3 -fno-omit-frame-pointer -std=c++2c -fsanitize=address -fsanitize=leak -fsanitize=undefined
 	NATIVE   = -msse -msse3 -mpopcnt
 	FLAGS    = -lpthread -lstdc++
 	CXXFLAGS += $(AVX2FLAGS)
 endif
 
-# Get what pgo flags we should be using
+EXE := $(NAME)$(SUFFIX)
 
-ifneq ($(findstring gcc, $(CCX)),)
-	PGOGEN   = -fprofile-generate
-	PGOUSE   = -fprofile-use
-endif
+all:
+	$(CXX) $(CXXFLAGS) $(NATIVE) -o $(EXE) src/attack.cpp src/history.cpp src/init.cpp src/io.cpp src/main.cpp src/makemove.cpp src/movegen.cpp src/movepicker.cpp src/nnue.cpp src/position.cpp src/search.cpp src/ttable.cpp src/uci.cpp $(FLAGS)
 
-ifneq ($(findstring clang, $(CCX)),)
-	PGOMERGE = llvm-profdata merge -output=alexandria.profdata *.profraw
-	PGOGEN   = -fprofile-instr-generate
-	PGOUSE   = -fprofile-instr-use=alexandria.profdata
-endif
-
-# Add network name and Evalfile
-CXXFLAGS += -DNETWORK_NAME=\"$(NETWORK_NAME)\" -DEVALFILE=\"$(EVALFILE)\"
-
-SOURCES := $(wildcard src/*.cpp)
-OBJECTS := $(patsubst %.cpp,$(TMPDIR)/%.o,$(SOURCES))
-DEPENDS := $(patsubst %.cpp,$(TMPDIR)/%.d,$(SOURCES))
-EXE	    := $(NAME)$(SUFFIX)
-
-all: $(TARGET)
 clean:
-	@rm -rf $(TMPDIR) *.o  $(DEPENDS) *.d
-
-$(TARGET): $(OBJECTS)
-	$(CXX) $(CXXFLAGS) $(NATIVE) -MMD -MP -o $(EXE) $^ $(FLAGS)
-
-$(TMPDIR)/%.o: %.cpp | $(TMPDIR)
-	$(CXX) $(CXXFLAGS) $(NATIVE) -MMD -MP -c $< -o $@ $(FLAGS)
-
-$(TMPDIR):
-	$(MKDIR) "$(TMPDIR)" "$(TMPDIR)/src"
-
--include $(DEPENDS)
-
-
-# Usual disservin yoink for makefile related stuff
-pgo:
-	$(CXX) $(CXXFLAGS) $(PGO_GEN) $(NATIVE) $(INSTRUCTIONS) -MMD -MP -o $(EXE) $(SOURCES) $(LDFLAGS)
-	./$(EXE) bench
-	$(PGO_MERGE)
-	$(CXX) $(CXXFLAGS) $(NATIVE) $(INSTRUCTIONS) $(PGO_USE) -MMD -MP -o $(EXE) $(SOURCES) $(LDFLAGS)
-	@rm -f *.gcda *.profraw *.o $(DEPENDS) *.d  profdata
+	@rm -rf $(NAME)$(SUFFIX)
