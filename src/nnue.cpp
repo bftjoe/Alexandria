@@ -45,7 +45,7 @@ int NNUE::povActivateAffine(Position *pos, NNUE::FinnyTable* FinnyPointer,  cons
     #endif
 
     const int kingSq = KingSQ(pos, side);
-    const bool flip = get_file[kingSq] > 3;
+    const bool flip = get_file(kingSq) > 3;
     const int kingBucket = getBucket(kingSq, side);
     FinnyTableEntry &cachedEntry = (*FinnyPointer)[side][kingBucket][flip];
 

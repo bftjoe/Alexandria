@@ -112,7 +112,7 @@ void ParseFen(const std::string& command, Position* pos) {
             // match ascii pieces within FEN string
             if ((current_char >= 'a' && current_char <= 'z') || (current_char >= 'A' && current_char <= 'Z')) {
                 // init piece type
-                const int piece = char_pieces[current_char];
+                const int piece = char_pieces(current_char);
                 if (piece != EMPTY) {
                     // set piece on corresponding bitboard
                     set_bit(pos->state().bitboards[piece], square);

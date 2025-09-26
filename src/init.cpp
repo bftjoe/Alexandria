@@ -126,7 +126,7 @@ void initializeLookupTables() {
     for (int sq1 = 0; sq1 < 64; ++sq1) {
         for (int sq2 = 0; sq2 < 64; ++sq2) {
             sqs = (1ULL << sq1) | (1ULL << sq2);
-            if (get_file[sq1] == get_file[sq2] || get_rank[sq1] == get_rank[sq2])
+            if (get_file(sq1) == get_file(sq2) || get_rank(sq1) == get_rank(sq2))
                 SQUARES_BETWEEN_BB[sq1][sq2] = GetRookAttacks(sq1, sqs) & GetRookAttacks(sq2, sqs);
             else if (get_diagonal[sq1] == get_diagonal[sq2] || get_antidiagonal(sq1) == get_antidiagonal(sq2))
                 SQUARES_BETWEEN_BB[sq1][sq2] = GetBishopAttacks(sq1, sqs) & GetBishopAttacks(sq2, sqs);

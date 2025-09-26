@@ -20,7 +20,8 @@
 #define PACK(__Declaration__) \
     __pragma(pack(push, 1)) __Declaration__ __pragma(pack(pop))
 #endif
-#define get_antidiagonal(sq) (get_rank[sq] + get_file[sq])
+
+constexpr int get_antidiagonal(Square sq) { return get_rank(sq) + get_file(sq); }
 
 struct BoardState {
     int pieces[64];

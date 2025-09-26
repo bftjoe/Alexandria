@@ -95,7 +95,7 @@ unsigned long long PerftTest(int depth, Position* pos) {
             square_to_coordinates[From(move)],
             square_to_coordinates[To(move)],
             isPromo(move)
-            ? promoted_pieces[getPromotedPiecetype(move)]
+            ? promoted_pieces(getPromotedPiecetype(move))
             : ' ',
             old_nodes);
     }

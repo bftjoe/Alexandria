@@ -126,7 +126,7 @@ void PrintMove(const Move move) {
     const char* to = square_to_coordinates[To(move)];
 
     if (isPromo(move))
-        std::cout << from << to << promoted_pieces[getPromotedPiecetype(move)];
+        std::cout << from << to << promoted_pieces(getPromotedPiecetype(move));
     else
         std::cout << from << to;
 }
@@ -137,7 +137,7 @@ char* FormatMove(const Move move) {
     const char* to = square_to_coordinates[To(move)];
 
     if (isPromo(move))
-        snprintf(moveString, sizeof(moveString), "%s%s%c", from, to, promoted_pieces[getPromotedPiecetype(move)]);
+        snprintf(moveString, sizeof(moveString), "%s%s%c", from, to, promoted_pieces(getPromotedPiecetype(move)));
     else
         snprintf(moveString, sizeof(moveString), "%s%s", from, to);
 
