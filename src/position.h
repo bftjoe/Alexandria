@@ -110,7 +110,7 @@ public:
         return state().castlePerm;
     }
 
-    [[nodiscard]] inline int getCastlingRookSquare(const int castleRight) const {
+    [[nodiscard]] inline uint getCastlingRookSquare(const int castleRight) const {
         switch (castleRight) {
         case WKCA: return castleRookSquares[0];
         case WQCA: return castleRookSquares[1];

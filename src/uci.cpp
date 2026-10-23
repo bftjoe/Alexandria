@@ -36,7 +36,7 @@ Move ParseMove(const std::string& moveString, Position* pos) {
         const Move move = moveList.moves[move_count].move;
         // make sure source & target squares are available within the generated move
         const bool isChess960Castle = pos->isChess960() && isCastle(move)
-            && targetSquare == pos->getCastlingRookSquare(GetMovetype(move) == static_cast<int>(Movetype::KSCastle)
+            && targetSquare == pos->getCastlingRookSquare(GetMovetype(move) == static_cast<uint>(Movetype::KSCastle)
                 ? pos->side == WHITE ? WKCA : BKCA
                 : pos->side == WHITE ? WQCA : BQCA);
         if (sourceSquare == From(move) &&
