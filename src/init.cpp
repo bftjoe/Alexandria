@@ -158,7 +158,6 @@ void InitNewGame(ThreadData* td) {
     searchinfo.starttime = GetTimeMs();
     td->stopped = false;
     td->nodes = 0;
-    td->seldepth = 0;
     // Clear TT
     ClearTT();
 
@@ -168,7 +167,6 @@ void InitNewGame(ThreadData* td) {
         helper.sd = SearchData{};
         helper.resetFinnyTable();
         helper.nodes = 0;
-        helper.seldepth = 0;
     }
 
     // delete played moves hashes

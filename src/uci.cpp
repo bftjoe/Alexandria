@@ -163,8 +163,7 @@ bool ParseGo(const std::string& line, SearchInfo* info, Position* pos, std::vect
         }
 
         if (tokens.at(i) == "nodes") {
-            info->nodeset = true;
-            info->nodeslimit = std::stoi(tokens[i + 1]);
+            std::cout << "Nodes limit is not supported, ignoring it" << std::endl;
         }
     }
 

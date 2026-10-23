@@ -25,11 +25,9 @@ struct SearchInfo {
     int depth = -1;
     // types of search limits
     bool timeset = false;
-    bool nodeset = false;
     bool movetimeset = false;
 
     int movestogo = 0;
-    uint64_t nodeslimit = 0;
 
     inline void Reset() {
         depth = 0;
@@ -39,7 +37,6 @@ struct SearchInfo {
         movestogo = 0;
         timeset = false;
         movetimeset = false;
-        nodeset = false;
     }
 
     inline void print(){
@@ -47,9 +44,7 @@ struct SearchInfo {
         std::cout << "stopOpt: " << stoptimeOpt << " ";
         std::cout << "stopMax: " << stoptimeMax << " ";
         std::cout << "depth: " << depth << " ";
-        std::cout << "timeset: " << timeset << " ";
-        std::cout << "nodeset: " << nodeset << std::endl;
-    }
+        std::cout << "timeset: " << timeset << " ";    }
 };
 
 inline SearchInfo searchinfo;
@@ -73,7 +68,6 @@ struct ThreadData {
     Position pos;
     SearchData sd;
     uint64_t nodes = 0;
-    int seldepth = 0;
     bool stopped = false;
     std::vector<ZobristKey> keyHistory;
     int RootDepth;

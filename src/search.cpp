@@ -125,7 +125,6 @@ void ClearForSearch(ThreadData* td) {
     if (td->id == 0)
         searchinfo.starttime = GetTimeMs();
     td->nodes = 0;
-    td->seldepth = 0;
 
     // Main thread clears pvTable, nodeSpentTable, and unpauses any eventual search thread
     if (td->id == 0) {
@@ -362,7 +361,7 @@ void SearchPosition(int startDepth, int finalDepth, ThreadData* td, UciOptions* 
             }
 
             // check if we just cleared a depth and more than OptTime passed, or we used more than the give nodes
-            if (StopEarly(&searchinfo) || NodesOver(&searchinfo, td))
+            if (StopEarly(&searchinfo))
                 // Stop main-thread search
                 td->stopped = true;
         }
@@ -382,8 +381,6 @@ void SearchPosition(int startDepth, int finalDepth, ThreadData* td, UciOptions* 
         if (td->id == 0 && (!shortUCI || currentDepth == finalDepth))
             PrintUciOutput(score, currentDepth, td, options);
 
-        // Seldepth should only be related to the current ID loop
-        td->seldepth = 0;
         prevScore = score;
         prevIdScore = score;
         completedDepth = true;
@@ -484,10 +481,6 @@ int Negamax(int alpha, int beta, int depth, const bool cutNode, ThreadData* td, 
     // if we are in a singular search and reusing the same ss entry, we have to guard this statement otherwise the pv length will get reset
     if (mainT)
         pvTable.pvLength[ss->ply] = ss->ply;
-
-    // Check for the highest depth reached in search to report it to the cli
-    if (ss->ply > td->seldepth)
-        td->seldepth = ss->ply;
 
     // check if more than Maxtime passed and we have to stop
     if (mainT && TimeOver(&searchinfo, td)) {

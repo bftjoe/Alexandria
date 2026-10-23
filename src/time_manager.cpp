@@ -62,14 +62,9 @@ void ScaleTm(ThreadData* td, const int bestMoveStabilityFactor, const int evalSt
 
 }
 
-bool NodesOver(const SearchInfo* info, const ThreadData* td) {
-    // check if we used all the nodes/movetime we had or if we used more than our lowerbound of time
-    return info->nodeset && td->nodes >= info->nodeslimit;
-}
-
 bool TimeOver(const SearchInfo* info, const ThreadData* td) {
     // check if more than Maxtime passed and we have to stop
-    return NodesOver(info, td) || ((info->timeset || info->movetimeset)
+    return (info->timeset || info->movetimeset)
                                && ((td->nodes & 1023) == 1023)
-                               && GetTimeMs() > info->stoptimeMax);
+                               && GetTimeMs() > info->stoptimeMax;
 }
