@@ -33,6 +33,9 @@ void ClearForSearch(ThreadData* td);
 // Starts the search process, this is ideally the point where you can start a multithreaded search
 void RootSearch(int depth, ThreadData* td, UciOptions* options);
 
+// Stops and joins the persistent helper workers during engine shutdown.
+void ShutdownHelperThreads();
+
 // SearchPosition is the actual function that handles the search, it sets up the variables needed for the search , calls the Negamax function and handles the console output
 void SearchPosition(int start_depth, int final_depth, ThreadData* td, UciOptions* options);
 

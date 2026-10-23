@@ -46,7 +46,7 @@ void ScaleTm(ThreadData* td, const int bestMoveStabilityFactor, const int evalSt
     const double evalScale[5] = {evalScale1() / 100.0, evalScale2() / 100.0, evalScale3() / 100.0, evalScale4() / 100.0, evalScale5() / 100.0};
     const int bestmove = GetBestMove();
     // Calculate how many nodes were spent on checking the best move
-    const double bestMoveNodesFraction = static_cast<double>(nodeSpentTable[FromTo(bestmove)]) / static_cast<double>(td->info.nodes);
+    const double bestMoveNodesFraction = static_cast<double>(nodeSpentTable[FromTo(bestmove)]) / static_cast<double>(td->nodes);
     const double nodeScalingFactor = (nodeTmBase() / 100.0 - bestMoveNodesFraction) * (nodeTmMultiplier() / 100.0);
     const double bestMoveScalingFactor = bestmoveScale[bestMoveStabilityFactor];
     const double evalScalingFactor = evalScale[evalStabilityFactor];
@@ -57,19 +57,19 @@ void ScaleTm(ThreadData* td, const int bestMoveStabilityFactor, const int evalSt
         + scoreTmPrevSearch() / 1000.0 * searchScoreDrop;
     const double scoreScalingFactor = std::clamp(scoreLoss, scoreTmClampMin() / 100.0, scoreTmClampMax() / 100.0);
     // Scale the search time based on how many nodes we spent and how the best move changed
-    td->info.stoptimeOpt = std::min<uint64_t>(td->info.starttime + td->info.stoptimeBaseOpt * nodeScalingFactor
-        * bestMoveScalingFactor * evalScalingFactor * scoreScalingFactor, td->info.stoptimeMax);
+    searchinfo.stoptimeOpt = std::min<uint64_t>(searchinfo.starttime + searchinfo.stoptimeBaseOpt * nodeScalingFactor
+        * bestMoveScalingFactor * evalScalingFactor * scoreScalingFactor, searchinfo.stoptimeMax);
 
 }
 
-bool NodesOver(const SearchInfo* info) {
+bool NodesOver(const SearchInfo* info, const ThreadData* td) {
     // check if we used all the nodes/movetime we had or if we used more than our lowerbound of time
-    return info->nodeset && info->nodes >= info->nodeslimit;
+    return info->nodeset && td->nodes >= info->nodeslimit;
 }
 
-bool TimeOver(const SearchInfo* info) {
+bool TimeOver(const SearchInfo* info, const ThreadData* td) {
     // check if more than Maxtime passed and we have to stop
-    return NodesOver(info) || ((info->timeset || info->movetimeset)
-                               && ((info->nodes & 1023) == 1023)
+    return NodesOver(info, td) || ((info->timeset || info->movetimeset)
+                               && ((td->nodes & 1023) == 1023)
                                && GetTimeMs() > info->stoptimeMax);
 }

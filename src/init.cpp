@@ -152,8 +152,6 @@ void InitNewGame(ThreadData* td) {
     // Extract data structures from ThreadData
     Position* pos = &td->pos;
     SearchData* sd = &td->sd;
-    SearchInfo* info = &td->info;
-
     td->resetFinnyTable();
 
     CleanHistories(sd);
@@ -169,17 +167,21 @@ void InitNewGame(ThreadData* td) {
     std::memset(sd->counterMoves, NOMOVE, sizeof(sd->counterMoves));
 
     // Reset plies and search info
-    info->starttime = GetTimeMs();
-    info->stopped = 0;
-    info->nodes = 0;
-    info->seldepth = 0;
+    searchinfo.starttime = GetTimeMs();
+    td->stopped = false;
+    td->nodes = 0;
+    td->seldepth = 0;
     // Clear TT
     ClearTT();
 
-    // Empty threads and thread data
+    // Stop any active helper searches while retaining their worker data.
     StopHelperThreads();
-
-    threads_data.clear();
+    for (auto& helper : threads_data) {
+        helper.sd = SearchData{};
+        helper.resetFinnyTable();
+        helper.nodes = 0;
+        helper.seldepth = 0;
+    }
 
     // delete played moves hashes
     td->keyHistory.clear();

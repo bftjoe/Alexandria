@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <cassert>
+#include <atomic>
 #include <iostream>
 #include "bitboard.h"
 #include "move.h"
@@ -16,6 +17,38 @@
 #include "time_manager.h"
 #include "io.h"
 #include "types.h"
+
+namespace {
+std::atomic<uint64_t> helperGeneration = 0;
+std::atomic<size_t> completedHelperCount = 0;
+size_t activeHelperCount = 0;
+int helperDepth = 0;
+UciOptions* helperOptions = nullptr;
+std::atomic<bool> shutdownHelpers = false;
+
+void HelperThreadLoop(const size_t index, uint64_t workerGeneration) {
+
+    while (true) {
+        helperGeneration.wait(workerGeneration, std::memory_order_acquire);
+        workerGeneration = helperGeneration.load(std::memory_order_acquire);
+        if (shutdownHelpers.load(std::memory_order_acquire))
+            return;
+
+        if (index >= activeHelperCount)
+            continue;
+
+        const size_t jobHelperCount = activeHelperCount;
+        ThreadData* td = &threads_data[index];
+        const int depth = helperDepth;
+        UciOptions* options = helperOptions;
+
+        SearchPosition(1, depth, td, options);
+
+        if (completedHelperCount.fetch_add(1, std::memory_order_acq_rel) + 1 == jobHelperCount)
+            completedHelperCount.notify_one();
+    }
+}
+}
 
 // Returns true if the position is a 2-fold repetition, false otherwise
 static bool IsRepetition(const Position* pos, const std::vector<ZobristKey>& keyHistory) {
@@ -88,13 +121,11 @@ bool isDecisive(const int score) {
 
 // ClearForSearch handles the cleaning of the post and the info parameters to start search from a clean state
 void ClearForSearch(ThreadData* td) {
-    // Extract data structures from ThreadData
-    SearchInfo* info = &td->info;
-
     // Reset plies and search info
-    info->starttime = GetTimeMs();
-    info->nodes = 0;
-    info->seldepth = 0;
+    if (td->id == 0)
+        searchinfo.starttime = GetTimeMs();
+    td->nodes = 0;
+    td->seldepth = 0;
 
     // Main thread clears pvTable, nodeSpentTable, and unpauses any eventual search thread
     if (td->id == 0) {
@@ -103,8 +134,6 @@ void ClearForSearch(ThreadData* td) {
         // Clean the node table
         std::memset(nodeSpentTable, 0, sizeof(nodeSpentTable));
 
-        for (auto& helper_thread : threads_data)
-            helper_thread.info.stopped = false;
     }
 }
 
@@ -222,31 +251,64 @@ Move GetBestMove() {
 
 // Starts the search process, this is ideally the point where you can start a multithreaded search
 void RootSearch(int depth, ThreadData* td, UciOptions* options) {
-    // Init a thread_data object for each helper thread that doesn't have one already
-    for (int i = threads_data.size(); i < options->Threads - 1; i++) {
+    const size_t helperCount = static_cast<size_t>(std::max(options->Threads - 1, 0));
+
+    // Preserve existing worker data and create only workers not yet in the pool.
+    while (threads_data.size() < helperCount) {
         threads_data.emplace_back();
-        threads_data.back().id = i + 1;
+        threads_data.back().id = static_cast<int>(threads_data.size());
+    }
+    while (threads.size() < helperCount)
+        threads.emplace_back(HelperThreadLoop, threads.size(),
+                             helperGeneration.load(std::memory_order_acquire));
+
+    for (size_t i = 0; i < threads_data.size(); ++i) {
+        threads_data[i].stopped = i >= helperCount || td->stopped;
+        threads_data[i].nodes = 0;
+        if (i < helperCount) {
+            threads_data[i].pos = td->pos;
+            threads_data[i].keyHistory = td->keyHistory;
+        }
     }
 
-    // Init thread_data objects
-    for (size_t i = 0; i < threads_data.size(); i++) {
-        threads_data[i].info = td->info;
-        threads_data[i].pos = td->pos;
-        threads_data[i].keyHistory = td->keyHistory;
+    if (helperCount != 0) {
+        activeHelperCount = helperCount;
+        completedHelperCount.store(0, std::memory_order_relaxed);
+        helperDepth = depth;
+        helperOptions = options;
+        helperGeneration.fetch_add(1, std::memory_order_release);
+        helperGeneration.notify_all();
     }
-
-    // Start Threads-1 helper search threads
-    for (int i = 0; i < options->Threads - 1; i++)
-        threads.emplace_back(SearchPosition, 1, depth, &threads_data[i], options);
 
     // MainThread search
     SearchPosition(1, depth, td, options);
-    // Stop helper threads before returning the best move
-    StopHelperThreads();
+    if (helperCount != 0) {
+        StopHelperThreads();
+        size_t completed = completedHelperCount.load(std::memory_order_acquire);
+        while (completed < helperCount) {
+            completedHelperCount.wait(completed, std::memory_order_acquire);
+            completed = completedHelperCount.load(std::memory_order_acquire);
+        }
+        activeHelperCount = 0;
+        helperOptions = nullptr;
+    }
     // Print final bestmove found
     std::cout << "bestmove ";
     PrintMove(GetBestMove());
     std::cout << std::endl;
+}
+
+void ShutdownHelperThreads() {
+    StopHelperThreads();
+    shutdownHelpers.store(true, std::memory_order_release);
+    helperGeneration.fetch_add(1, std::memory_order_release);
+    helperGeneration.notify_all();
+    for (auto& th : threads) {
+        if (th.joinable())
+            th.join();
+    }
+    threads.clear();
+    threads_data.clear();
 }
 
 // SearchPosition is the actual function that handles the search, it sets up the variables needed for the search, calls the AspirationWindowSearch function and handles the console output
@@ -295,25 +357,25 @@ void SearchPosition(int startDepth, int finalDepth, ThreadData* td, UciOptions* 
 
             // use the previous search to adjust some of the time management parameters, do not scale movetime time controls
             if (   td->RootDepth > 7
-                && td->info.timeset) {
+                && searchinfo.timeset) {
                 ScaleTm(td, bestMoveStabilityFactor, evalStabilityFactor, score, prevIdScore, td->lastSearchScore);
             }
 
             // check if we just cleared a depth and more than OptTime passed, or we used more than the give nodes
-            if (StopEarly(&td->info) || NodesOver(&td->info))
+            if (StopEarly(&searchinfo) || NodesOver(&searchinfo, td))
                 // Stop main-thread search
-                td->info.stopped = true;
+                td->stopped = true;
         }
 
         // If we stop (not at an exact depth) we print a final info string
-        printFinalInfoString = td->info.stopped;
+        printFinalInfoString = td->stopped;
 
         // Print a final info string if we have to
         if (td->id == 0 && printFinalInfoString)
             PrintUciOutput(prevScore, currentDepth - 1, td, options);
 
         // stop calculating and return best move so far
-        if (td->info.stopped)
+        if (td->stopped)
             break;
 
         // If it's the main thread print the uci output
@@ -321,7 +383,7 @@ void SearchPosition(int startDepth, int finalDepth, ThreadData* td, UciOptions* 
             PrintUciOutput(score, currentDepth, td, options);
 
         // Seldepth should only be related to the current ID loop
-        td->info.seldepth = 0;
+        td->seldepth = 0;
         prevScore = score;
         prevIdScore = score;
         completedDepth = true;
@@ -367,14 +429,14 @@ int AspirationWindowSearch(int prev_eval, int depth, ThreadData* td) {
         score = Negamax<true>(alpha, beta, depth, false, td, ss);
 
         // Check if more than Maxtime passed and we have to stop
-        if (td->id == 0 && TimeOver(&td->info)) {
+        if (td->id == 0 && TimeOver(&searchinfo, td)) {
             StopHelperThreads();
-            td->info.stopped = true;
+            td->stopped = true;
             break;
         }
 
         // Stop calculating and return best move so far
-        if (td->info.stopped) break;
+        if (td->stopped) break;
 
         // We fell outside the window, so try again with a bigger window, since we failed low we can adjust beta to decrease the total window size
         if (score <= alpha) {
@@ -407,7 +469,6 @@ int Negamax(int alpha, int beta, int depth, const bool cutNode, ThreadData* td, 
     // Extract data structures from ThreadData
     Position* pos = &td->pos;
     SearchData* sd = &td->sd;
-    SearchInfo* info = &td->info;
     const bool mainT = td->id == 0;
 
     // Initialize the node
@@ -426,24 +487,24 @@ int Negamax(int alpha, int beta, int depth, const bool cutNode, ThreadData* td, 
         pvTable.pvLength[ss->ply] = ss->ply;
 
     // Check for the highest depth reached in search to report it to the cli
-    if (ss->ply > info->seldepth)
-        info->seldepth = ss->ply;
+    if (ss->ply > td->seldepth)
+        td->seldepth = ss->ply;
 
     // check if more than Maxtime passed and we have to stop
-    if (mainT && TimeOver(&td->info)) {
+    if (mainT && TimeOver(&searchinfo, td)) {
         StopHelperThreads();
-        td->info.stopped = true;
+        td->stopped = true;
         return 0;
     }
 
-    if (info->stopped)
+    if (td->stopped)
         return 0;
 
     // Check for early return conditions
     if (!rootNode) {
         // If position is a draw return a draw score
         if (IsDraw(pos, td->keyHistory))
-            return (info->nodes & 2) - 1;
+            return (td->nodes & 2) - 1;
 
         // Upcoming repetition detection
         if (alpha < 0 && hasGameCycle(pos, td->keyHistory, ss->ply))
@@ -647,7 +708,7 @@ int Negamax(int alpha, int beta, int depth, const bool cutNode, ThreadData* td, 
             ss->contHistEntry = &sd->contHist[PieceTo(move)];
 
             // increment nodes count
-            info->nodes++;
+            td->nodes++;
 
             // Play the move
             MakeMove<true>(move, pos, td->keyHistory);
@@ -791,8 +852,8 @@ int Negamax(int alpha, int beta, int depth, const bool cutNode, ThreadData* td, 
         ss->contHistEntry = &sd->contHist[PieceTo(move)];
 
         // increment nodes count
-        info->nodes++;
-        const uint64_t nodesBeforeSearch = info->nodes;
+        td->nodes++;
+        const uint64_t nodesBeforeSearch = td->nodes;
         // Conditions to consider LMR. Calculate how much we should reduce the search depth.
         if (totalMoves > 1 && depth >= 3 && (isQuiet || !ttPv)) {
 
@@ -878,9 +939,9 @@ int Negamax(int alpha, int beta, int depth, const bool cutNode, ThreadData* td, 
         // take move back
         UnmakeMove(pos, td->keyHistory);
         if (mainT && rootNode)
-            nodeSpentTable[FromTo(move)] += info->nodes - nodesBeforeSearch;
+            nodeSpentTable[FromTo(move)] += td->nodes - nodesBeforeSearch;
 
-        if (info->stopped)
+        if (td->stopped)
             return 0;
 
         // If the score of the current move is the best we've found until now
@@ -957,7 +1018,6 @@ template <bool pvNode>
 int Quiescence(int alpha, int beta, int depth, ThreadData* td, SearchStack* ss) {
     Position* pos = &td->pos;
     SearchData* sd = &td->sd;
-    SearchInfo* info = &td->info;
     const bool inCheck = pos->getCheckers();
     // tte is an TT entry, it will store the values fetched from the TT
     TTEntry tte;
@@ -965,9 +1025,9 @@ int Quiescence(int alpha, int beta, int depth, ThreadData* td, SearchStack* ss) 
     int rawEval;
 
     // check if more than Maxtime passed and we have to stop
-    if (td->id == 0 && TimeOver(&td->info)) {
+    if (td->id == 0 && TimeOver(&searchinfo, td)) {
         StopHelperThreads();
-        td->info.stopped = true;
+        td->stopped = true;
         return 0;
     }
 
@@ -983,7 +1043,7 @@ int Quiescence(int alpha, int beta, int depth, ThreadData* td, SearchStack* ss) 
             return alpha;
     }
 
-    if (info->stopped)
+    if (td->stopped)
         return 0;
 
     // ttHit is true if and only if we find something in the TT
@@ -1046,7 +1106,7 @@ int Quiescence(int alpha, int beta, int depth, ThreadData* td, SearchStack* ss) 
     // loop over moves within the movelist
     while ((move = NextMove(&mp, !isMated(bestScore))) != NOMOVE) {
 
-        if (info->stopped)
+        if (td->stopped)
             return 0;
 
         if (!IsLegal(pos, move))
@@ -1072,14 +1132,14 @@ int Quiescence(int alpha, int beta, int depth, ThreadData* td, SearchStack* ss) 
         // Play the move
         MakeMove<true>(move, pos, td->keyHistory);
         // increment nodes count
-        info->nodes++;
+        td->nodes++;
         // Call Quiescence search recursively
         const int score = -Quiescence<pvNode>(-beta, -alpha, depth - 1, td, ss + 1);
 
         // take move back
         UnmakeMove(pos, td->keyHistory);
 
-        if (info->stopped)
+        if (td->stopped)
             return 0;
 
         // If the score of the current move is the best we've found until now

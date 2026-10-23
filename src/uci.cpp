@@ -11,6 +11,7 @@
 #include "threads.h"
 #include "position.h"
 #include "movegen.h"
+#include <atomic>
 #include <iostream>
 #include "tune.h"
 #include "eval.h"
@@ -178,6 +179,73 @@ bool ParseGo(const std::string& line, SearchInfo* info, Position* pos, std::vect
     return true;
 }
 
+namespace {
+class RootSearchWorker {
+public:
+    RootSearchWorker() : worker([this] { Run(); }) {}
+
+    void Start(const int depth, ThreadData* td, UciOptions* options) {
+        searchDepth = depth;
+        threadData = td;
+        uciOptions = options;
+        taskGeneration.fetch_add(1, std::memory_order_release);
+        taskGeneration.notify_one();
+    }
+
+    void Wait() {
+        const uint64_t targetGeneration = taskGeneration.load(std::memory_order_acquire);
+        uint64_t completed = completedGeneration.load(std::memory_order_acquire);
+        while (completed < targetGeneration) {
+            completedGeneration.wait(completed, std::memory_order_acquire);
+            completed = completedGeneration.load(std::memory_order_acquire);
+        }
+    }
+
+    void Stop(ThreadData* td) {
+        td->stopped = true;
+        StopHelperThreads();
+        Wait();
+    }
+
+    void Shutdown() {
+        Wait();
+        shuttingDown.store(true, std::memory_order_release);
+        taskGeneration.fetch_add(1, std::memory_order_release);
+        taskGeneration.notify_one();
+        if (worker.joinable())
+            worker.join();
+    }
+
+private:
+    void Run() {
+        uint64_t workerGeneration = 0;
+        while (true) {
+            taskGeneration.wait(workerGeneration, std::memory_order_acquire);
+            workerGeneration = taskGeneration.load(std::memory_order_acquire);
+            if (shuttingDown.load(std::memory_order_acquire))
+                return;
+
+            const int depth = searchDepth;
+            ThreadData* td = threadData;
+            UciOptions* options = uciOptions;
+
+            RootSearch(depth, td, options);
+
+            completedGeneration.store(workerGeneration, std::memory_order_release);
+            completedGeneration.notify_all();
+        }
+    }
+
+    std::thread worker;
+    std::atomic<uint64_t> taskGeneration = 0;
+    std::atomic<uint64_t> completedGeneration = 0;
+    std::atomic<bool> shuttingDown = false;
+    ThreadData* threadData = nullptr;
+    UciOptions* uciOptions = nullptr;
+    int searchDepth = 0;
+};
+}
+
 // main UCI loop
 void UciLoop(int argc, char** argv) {
     if (argv[1] && strncmp(argv[1], "bench", 5) == 0) {
@@ -194,13 +262,14 @@ void UciLoop(int argc, char** argv) {
         }
         tryhardmode = true;
         StartBench(benchDepth);
+        ShutdownHelperThreads();
         return;
     }
 
     bool parsed_position = false;
     UciOptions uciOptions;
     ThreadData* td(new ThreadData());
-    std::thread main_thread;
+    RootSearchWorker searchWorker;
     state threads_state = Idle;
     // print engine info
     std::cout << NAME << "\n";
@@ -241,10 +310,8 @@ void UciLoop(int argc, char** argv) {
 
         // parse UCI "go" command
         else if (tokens[0] == "go") {
-            StopHelperThreads();
-            // Join previous search thread if it exists
-            if (main_thread.joinable())
-                main_thread.join();
+            searchWorker.Stop(td);
+            threads_state = Idle;
 #ifdef TUNE
             InitReductions();
 #endif
@@ -253,11 +320,12 @@ void UciLoop(int argc, char** argv) {
                 ParsePosition("position startpos", &td->pos, td->keyHistory, uciOptions.chess960);
             }
             // call parse go function
-            bool search = ParseGo(input, &td->info, &td->pos, td->keyHistory);
+            td->stopped = false;
+            bool search = ParseGo(input, &searchinfo, &td->pos, td->keyHistory);
             // Start search in a separate thread
             if (search) {
                 threads_state = Search;
-                main_thread = std::thread(RootSearch, td->info.depth, td, &uciOptions);
+                searchWorker.Start(searchinfo.depth, td, &uciOptions);
             }
         }
 
@@ -300,45 +368,30 @@ void UciLoop(int argc, char** argv) {
 
         // parse UCI "ucinewgame" command
         else if (input == "ucinewgame") {
+            if (threads_state == Search)
+                searchWorker.Stop(td);
+            threads_state = Idle;
             InitNewGame(td);
         }
         // parse UCI "stop" command
         else if (input == "stop") {
             if (threads_state == Search) {
-                // Stop helper threads
-                StopHelperThreads();
-                // stop main thread search
-                td->info.stopped = true;
-                if (main_thread.joinable())
-                    main_thread.join();
+                searchWorker.Stop(td);
             }
             threads_state = Idle;
         }
 
         // parse UCI "position" command
         else if (input == "wait") {
-            // call parse position function
-            while (!td->info.stopped) {
-                ;
-            }
-            if (main_thread.joinable())
-                main_thread.join();
+            searchWorker.Wait();
         }
 
         // parse UCI "quit" command
         else if (input == "quit" || input == "exit") {
             if (threads_state == Search) {
-                // Stop helper threads
-                StopHelperThreads();
-                // stop main thread search
-                td->info.stopped = true;
+                searchWorker.Stop(td);
             }
-            // Join previous search thread if it exists
-            if (main_thread.joinable())
-                main_thread.join();
             threads_state = Idle;
-            // free thread data
-            delete td;
             // quit from the chess engine program execution
             break;
         }
@@ -402,4 +455,11 @@ void UciLoop(int argc, char** argv) {
         }
         else std::cout << "Unknown command: " << input << std::endl;
     }
+
+    if (threads_state == Search) {
+        searchWorker.Stop(td);
+    }
+    searchWorker.Shutdown();
+    ShutdownHelperThreads();
+    delete td;
 }

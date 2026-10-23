@@ -171,22 +171,22 @@ void PrintUciOutput(const int score, const int depth, const ThreadData* td, cons
     if (tryhardmode)
         return;
     // This handles the basic console output
-    long time = GetTimeMs() - td->info.starttime;
-    uint64_t nodes = td->info.nodes + GetTotalNodes();
+    long time = GetTimeMs() - searchinfo.starttime;
+    uint64_t nodes = td->nodes + GetTotalNodes();
 
     uint64_t nps = nodes / (time + !time) * 1000;
     if (print_uci) {
         if (score > -MATE_SCORE && score < -MATE_FOUND)
-            std::cout << "info score mate " << -(score + MATE_SCORE) / 2 << " depth " << depth << " seldepth " << td->info.seldepth << " multipv " << options->MultiPV << " nodes " << nodes <<
-            " nps " << nps << " time " << GetTimeMs() - td->info.starttime << " pv ";
+            std::cout << "info score mate " << -(score + MATE_SCORE) / 2 << " depth " << depth << " seldepth " << td->seldepth << " multipv " << options->MultiPV << " nodes " << nodes <<
+            " nps " << nps << " time " << GetTimeMs() - searchinfo.starttime << " pv ";
 
         else if (score > MATE_FOUND && score < MATE_SCORE)
-            std::cout << "info score mate " << (MATE_SCORE - score) / 2 + 1 << " depth " << depth << " seldepth " << td->info.seldepth << " multipv " << options->MultiPV << " nodes " << nodes <<
-            " nps " << nps << " time " << GetTimeMs() - td->info.starttime << " pv ";
+            std::cout << "info score mate " << (MATE_SCORE - score) / 2 + 1 << " depth " << depth << " seldepth " << td->seldepth << " multipv " << options->MultiPV << " nodes " << nodes <<
+            " nps " << nps << " time " << GetTimeMs() - searchinfo.starttime << " pv ";
 
         else
-            std::cout << "info score cp " << int(score / 2.5) << " depth " << depth << " seldepth " << td->info.seldepth << " multipv " << options->MultiPV << " nodes " << nodes <<
-            " nps " << nps << " hashfull "<< GetHashfull() << " time " << GetTimeMs() - td->info.starttime << " pv ";
+            std::cout << "info score cp " << int(score / 2.5) << " depth " << depth << " seldepth " << td->seldepth << " multipv " << options->MultiPV << " nodes " << nodes <<
+            " nps " << nps << " hashfull "<< GetHashfull() << " time " << GetTimeMs() - searchinfo.starttime << " pv ";
 
         for (int count = 0; count < std::max(pvTable.pvLength[0], 1); count++) {
             PrintMove(pvTable.pvArray[0][count]);
@@ -269,7 +269,7 @@ void PrintUciOutput(const int score, const int depth, const ThreadData* td, cons
 
         // Pretty print search info
         std::cout << std::setw(3) << depth << "/";
-        std::cout << std::left << std::setw(3) << td->info.seldepth;
+        std::cout << std::left << std::setw(3) << td->seldepth;
 
         std::cout << std::right << std::setw(8) << time_string;
         std::cout << std::right << std::setw(10) << node_string;

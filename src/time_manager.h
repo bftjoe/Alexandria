@@ -5,7 +5,7 @@ struct ThreadData;
 
 void Optimum(SearchInfo* info, int time, int inc);
 [[nodiscard]] bool StopEarly(const SearchInfo* info);
-[[nodiscard]] bool TimeOver(const SearchInfo* info);
-[[nodiscard]] bool NodesOver(const SearchInfo* info);
+[[nodiscard]] bool TimeOver(const SearchInfo* info, const ThreadData* td);
+[[nodiscard]] bool NodesOver(const SearchInfo* info, const ThreadData* td);
 void ScaleTm(ThreadData* td, const int bestMoveStabilityFactor, const int evalStabilityFactor,
 			 const int currentScore, const int prevIdScore, const int prevSearchScore);
