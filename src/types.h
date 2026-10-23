@@ -6,7 +6,6 @@
 
 #define NAME "Alexandria-9.1.7"
 
-inline int reductions[2][64][64];
 inline int lmp_margin[64][2];
 
 inline const std::string start_position = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
@@ -114,4 +113,3 @@ constexpr int PieceType[12] = { PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING,
 // Contains the material Values of the pieces
 constexpr int SEEValue[15] = { 100, 422, 422, 642, 1015, 0,
                                100, 422, 422, 642, 1015, 0, 0, 0, 0 };
-

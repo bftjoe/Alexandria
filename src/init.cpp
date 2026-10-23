@@ -72,19 +72,7 @@ void initializeLookupTables() {
     }
 }
 
-// PreCalculate the logarithms used in the reduction calculation
-void InitReductions() {
-    // Avoid log(0) because it's bad
-    reductions[0][0][0] = 0;
-    reductions[1][0][0] = 0;
-
-    for (int i = 1; i < 64; i++) {
-        for (int j = 1; j < 64; j++) {
-            reductions[0][i][j] = lmrNoisyBase() / 100.0 + log(i) * log(j) / (lmrNoisytDivisor() / 100.0);
-            reductions[1][i][j] = lmrQuietBase() / 100.0 + log(i) * log(j) /  (lmrQuietDivisor() / 100.0);
-        }
-    }
-
+void InitMoveCountMargins() {
     for (int depth = 0; depth < 64; depth++) {
         lmp_margin[depth][0] = 1.5 + 0.5 * std::pow(depth, 2.0); // Not improving
         lmp_margin[depth][1] = 3.0 + 1.0 * std::pow(depth, 2.0); // improving
@@ -141,7 +129,7 @@ void InitAll() {
     InitAttackTables();
     initializeLookupTables();
     initHashKeys();
-    InitReductions();
+    InitMoveCountMargins();
     // Init TT
     InitTT(16);
     NNUE::init();

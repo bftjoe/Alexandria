@@ -16,5 +16,3 @@ void InitNewGame(ThreadData* td);
 void InitAttackTables();
 
 void InitAll();
-// has to be exposed for tuning refreshes
-void InitReductions();

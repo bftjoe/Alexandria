@@ -406,7 +406,6 @@ int AspirationWindowSearch(int prev_eval, int depth, ThreadData* td) {
         (ss + i)->searchKiller = NOMOVE;
         (ss + i)->staticEval = SCORE_NONE;
         (ss + i)->contHistEntry = &sd->contHist[PieceTo(NOMOVE)];
-        (ss + i)->reduction = 0;
     }
     for (int i = 0; i < MAXDEPTH; i++) {
         (ss + i)->ply = i;
@@ -596,13 +595,6 @@ int Negamax(int alpha, int beta, int depth, const bool cutNode, ThreadData* td, 
         updateOppHHScore(pos, sd, move, bonus);
     }
 
-    const int complexity = [&] {
-        if (eval == 0 || rawEval == 0)
-            return 0;
-        else
-            return 100 * std::abs(eval - rawEval) / std::abs(eval);
-    }();
-
     // Improving is a very important modifier to many heuristics. It checks if our static eval has improved since our last move.
     // As we don't evaluate in check, we look for the first ply we weren't in check between 2 and 4 plies ago. If we find that
     // static eval has improved, or that we were in check both 2 and 4 plies ago, we set improving to true.
@@ -619,11 +611,6 @@ int Negamax(int alpha, int beta, int depth, const bool cutNode, ThreadData* td, 
     if (!pvNode
         && !excludedMove
         && !inCheck) {
-
-        // Hindsight reduction
-        if( depth >= 2 && (ss-1)->reduction >= 1 && (ss-1)->staticEval != SCORE_NONE && ss->staticEval + (ss-1)->staticEval >= hindsightEval()){
-            depth--;
-        }
 
         // Reverse futility pruning
         if (   depth <= 9
@@ -761,10 +748,6 @@ int Negamax(int alpha, int beta, int depth, const bool cutNode, ThreadData* td, 
         if (   !rootNode
             && !isMated(bestScore)) {
 
-            const int reduction = reductions[isQuiet][std::min(depth, 63)][std::min(totalMoves, 63)];
-            // lmrDepth is the current depth minus the reduction the move would undergo in lmr, this is helpful because it helps us discriminate the bad moves with more accuracy
-            const int lmrDepth = std::max(0, depth - reduction + moveHistory / lmrDepthDivisor());
-
             if (!skipQuiets) {
 
                 // Movecount pruning: if we searched enough moves and we are not in check we skip the rest
@@ -772,11 +755,11 @@ int Negamax(int alpha, int beta, int depth, const bool cutNode, ThreadData* td, 
                     skipQuiets = true;
                 }
 
-                const int futilityValue = ss->staticEval + futilityCoeff0() + futilityCoeff1() * lmrDepth;
+                const int futilityValue = ss->staticEval + futilityCoeff0() + futilityCoeff1() * depth;
                 // Futility pruning: if the static eval is so low that even after adding a bonus we are still under alpha we can stop trying quiet moves
                 if (!inCheck
                     && isQuiet
-                    && lmrDepth < 13
+                    && depth < 13
                     && futilityValue <= alpha) {
                     if (bestScore <= futilityValue && !isDecisive(bestScore) && !isMate(futilityValue))
                         bestScore = futilityValue;
@@ -789,7 +772,7 @@ int Negamax(int alpha, int beta, int depth, const bool cutNode, ThreadData* td, 
                     continue;
                 }
             }
-            int see_margin = isQuiet ? seeQuietMargin() * lmrDepth : seeNoisyMargin() * lmrDepth * lmrDepth;
+            int see_margin = isQuiet ? seeQuietMargin() * depth : seeNoisyMargin() * depth * depth;
             // See pruning: prune all the moves that have a SEE score that is lower than our threshold
             if (!SEE(pos, move, see_margin))
                 continue;
@@ -806,81 +789,7 @@ int Negamax(int alpha, int beta, int depth, const bool cutNode, ThreadData* td, 
         // increment nodes count
         td->nodes++;
         const uint64_t nodesBeforeSearch = td->nodes;
-        // Conditions to consider LMR. Calculate how much we should reduce the search depth.
-        if (totalMoves > 1 && depth >= 3 && (isQuiet || !ttPv)) {
-
-            // Get base reduction value
-            int depthReduction = reductions[isQuiet][std::min(depth, 63)][std::min(totalMoves, 63)];
-
-            if (isQuiet) {
-                // Fuck
-                if (cutNode)
-                    depthReduction += 2;
-
-                // Reduce more if we are not improving
-                if (!improving)
-                    depthReduction += 1;
-
-                // Reduce less if the move is a refutation
-                if (move == mp.killer || move == mp.counter)
-                    depthReduction -= 1;
-
-                // Decrease the reduction for moves that give check
-                if (pos->getCheckers())
-                    depthReduction -= 1;
-
-                // Reduce less if we have been on the PV
-                if (ttPv)
-                    depthReduction -= 1 + cutNode;
-
-                if(complexity > 50)
-                    depthReduction -= 1;
-
-                // Decrease the reduction for moves that have a good history score and increase it for moves with a bad score
-                depthReduction -= moveHistory / historyQuietLmrDivisor();
-            }
-            else {
-                // Fuck
-                if (cutNode)
-                    depthReduction += 2;
-
-                // Reduce more if we are not improving
-                if (!improving)
-                    depthReduction += 1;
-
-                // Decrease the reduction for moves that give check
-                if (pos->getCheckers())
-                    depthReduction -= 1;
-
-                // Decrease the reduction for moves that have a good history score and increase it for moves with a bad score
-                depthReduction -= moveHistory / historyNoisyLmrDivisor();
-            }
-
-            // clamp the reduced depth so that we can't drop into Qsearch and to only allow a minor extension
-            int reducedDepth = std::max(1, std::min(newDepth - depthReduction, newDepth))  + pvNode;
-
-            // search current move with reduced depth:
-            ss->reduction = static_cast<int16_t >(depthReduction);
-            score = -Negamax<false>(-alpha - 1, -alpha, reducedDepth, true, td, ss + 1);
-            ss->reduction = 0;
-
-            // if we failed high on a reduced node we'll search with a reduced window and full depth
-            if (score > alpha && newDepth > reducedDepth) {
-                // Based on the value returned by our reduced search see if we should search deeper or shallower,
-                // this is an exact yoink of what SF does and frankly i don't care lmao
-                const bool doDeeperSearch = score > (bestScore + doDeeperBaseMargin() + 2 * newDepth);
-                const bool doShallowerSearch = score < (bestScore + newDepth + doShallowerBaseMargin());
-                newDepth += doDeeperSearch - doShallowerSearch;
-                if (newDepth > reducedDepth)
-                    score = -Negamax<false>(-alpha - 1, -alpha, newDepth, !cutNode, td, ss + 1);
-
-                int bonus = score > alpha ? history_bonus(depth)
-                                          : -history_malus(depth);
-                updateCHScore(ss, move, bonus);
-            }
-        }
-        // If we skipped LMR and this isn't the first move of the node we'll search with a reduced window and full depth
-        else if (!pvNode || totalMoves > 1) {
+        if (!pvNode || totalMoves > 1) {
             score = -Negamax<false>(-alpha - 1, -alpha, newDepth, !cutNode, td, ss + 1);
         }
 

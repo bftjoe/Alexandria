@@ -312,10 +312,6 @@ void UciLoop(int argc, char** argv) {
         else if (tokens[0] == "go") {
             searchWorker.Stop(td);
             threads_state = Idle;
-#ifdef TUNE
-            InitReductions();
-#endif
-
             if (!parsed_position) { // call parse position function
                 ParsePosition("position startpos", &td->pos, td->keyHistory, uciOptions.chess960);
             }
