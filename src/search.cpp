@@ -730,12 +730,6 @@ int Negamax(int alpha, int beta, int depth, const bool cutNode, ThreadData* td, 
         }
     }
 
-    // IIR by Ed Schroder (That i find out about in Berserk source code)
-    // http://talkchess.com/forum3/viewtopic.php?f=7&t=74769&sid=64085e3396554f0fba414404445b3120
-    // https://github.com/jhonnold/berserk/blob/dd1678c278412898561d40a31a7bd08d49565636/src/search.c#L379
-    if (!inCheck && badNode)
-        depth -= 1;
-
     // old value of alpha
     const int old_alpha = alpha;
     int bestScore = -MAXSCORE;
@@ -801,50 +795,8 @@ int Negamax(int alpha, int beta, int depth, const bool cutNode, ThreadData* td, 
                 continue;
         }
 
-        int extension = 0;
-        // Limit Extensions to try and curb search explosions
-        if (ss->ply * 2 < td->RootDepth * 5) {
-
-            // Singular Extensions
-            if (   !rootNode
-                &&  depth >= 6
-                &&  move == ttMove
-                && !excludedMove
-                && (ttBound & HFLOWER)
-                && !isDecisive(ttScore)
-                &&  ttDepth >= depth - 3) {
-                const int singularBeta = ttScore - depth * 5 / 8
-                                         - depth * (ttPv && !pvNode);
-                const int singularDepth = (depth - 1) / 2;
-
-                ss->excludedMove = ttMove;
-                const int singularScore = Negamax<false>(singularBeta - 1, singularBeta, singularDepth, cutNode, td, ss);
-                ss->excludedMove = NOMOVE;
-
-                if (singularScore < singularBeta) {
-                    extension = 1;
-
-                    if (   !pvNode
-                        &&  singularScore < singularBeta - singularDoubleExtensionMargin()) {
-                        extension = 2 + (singularScore < singularBeta - singularTripleExtensionMargin());
-                        depth += depth < 10;
-                    }
-                }
-                else if (singularScore >= beta && !isDecisive(singularScore))
-                    return singularScore;
-
-                // If we didn't successfully extend and our TT score is above beta reduce the search depth
-                else if (ttScore >= beta)
-                    extension = -2;
-
-                // If we are expecting a fail-high both based on search states from previous plies and based on TT bound
-                // but our TT move is not singular and our TT score is failing low, reduce the search depth
-                else if (cutNode)
-                    extension = -2;
-            }
-        }
         // we adjust the search depth based on potential extensions
-        int newDepth = depth - 1 + extension;
+        int newDepth = depth - 1;
 
         ss->move = move;
         // Play the move
