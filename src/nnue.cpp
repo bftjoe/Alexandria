@@ -3,37 +3,29 @@
 #include "simd.h"
 #include "threats.h"
 #include <algorithm>
+#include <array>
 #include <cstdint>
 #include <cstring>
 #include <numeric>
 #ifdef NNZ_PROFILE
-#include <array>
 #include <cstdlib>
 #include <iostream>
 #include <mutex>
 #endif
 #include "attack.h"
-#include "incbin/incbin.h"
 #include "io.h"
 #include <fstream>
 
-// Macro to embed the default efficiently updatable neural network (NNUE) file
-// data in the engine binary (using incbin.h, by Dale Weiler).
-// This macro invocation will declare the following three variables
-//     const unsigned char        gEVALData[];  // a pointer to the embedded data
-//     const unsigned char *const gEVALEnd;     // a marker to the end
-//     const unsigned int         gEVALSize;    // the size of the embedded file
-// Note that this does not work in Microsoft Visual Studio.
-#if !defined(_MSC_VER)
-INCBIN(EVAL, EVALFILE);
-#else
-const unsigned char gEVALData[1] = {};
-const unsigned char *const gEVALEnd = &gEVALData[1];
-const unsigned int gEVALSize = 1;
-#endif
+alignas(QuantisedNetwork) constexpr unsigned char gEVALData[] = {
+#embed "../nn.net" limit(268435456)
+};
+static_assert(sizeof(gEVALData) >= sizeof(QuantisedNetwork),
+              "The embedded NNUE network is smaller than QuantisedNetwork");
 
 const Network *net;
 NNZTable nnzTable;
+
+Network permutedNet;
 
 #ifdef NNZ_PROFILE
 namespace
@@ -77,16 +69,130 @@ namespace
 }
 #endif
 
-QuantisedNetwork quantisedNet;
-Network permutedNet;
-
 uint16_t threatPairIndices[5][64][64];
 int32_t threatIndexBases[2][12][12][2];
 Bitboard pawnPairMasks[64];
 
+namespace
+{
+constexpr std::array<int, L1_SIZE / 2> nnzPermutation = [] {
+    std::array<int, L1_SIZE / 2> permutation = {};
+    for (int i = 0; i < L1_SIZE / 2; ++i)
+        permutation[i] = i;
+    return permutation;
+}();
+
+void permuteTransposeNetwork(const QuantisedNetwork& quantisedNet)
+{
+    for (int feature = 0; feature < INPUT_BUCKETS * NUM_INPUTS; ++feature)
+        for (int output = 0; output < L1_SIZE / 2; ++output) {
+            const int source = nnzPermutation[output];
+            permutedNet.FTWeights[feature * L1_SIZE + output]
+                = quantisedNet.FTWeights[feature * L1_SIZE + source];
+            permutedNet.FTWeights[feature * L1_SIZE + output + L1_SIZE / 2]
+                = quantisedNet.FTWeights[feature * L1_SIZE + source + L1_SIZE / 2];
+        }
+
+    for (int feature = 0; feature < THREAT_INPUTS; ++feature)
+        for (int output = 0; output < L1_SIZE / 2; ++output) {
+            const int source = nnzPermutation[output];
+            permutedNet.ThreatWeights[feature * L1_SIZE + output]
+                = quantisedNet.ThreatWeights[feature * L1_SIZE + source];
+            permutedNet.ThreatWeights[feature * L1_SIZE + output + L1_SIZE / 2]
+                = quantisedNet.ThreatWeights[feature * L1_SIZE + source + L1_SIZE / 2];
+        }
+
+    for (int output = 0; output < L1_SIZE / 2; ++output) {
+        const int source = nnzPermutation[output];
+        permutedNet.FTBiases[output] = quantisedNet.FTBiases[source];
+        permutedNet.FTBiases[output + L1_SIZE / 2]
+            = quantisedNet.FTBiases[source + L1_SIZE / 2];
+    }
+
+#if defined(USE_SIMD)
+    __m128i *weight = reinterpret_cast<__m128i*>(permutedNet.FTWeights);
+    __m128i *threatWeight = reinterpret_cast<__m128i*>(permutedNet.ThreatWeights);
+    __m128i *biases = reinterpret_cast<__m128i*>(permutedNet.FTBiases);
+    constexpr int numChunks = sizeof(__m128i) / sizeof(int16_t);
+
+#if defined(USE_AVX512)
+    constexpr int numRegi = 8;
+    constexpr int order[numRegi] = {0, 2, 4, 6, 1, 3, 5, 7};
+#elif defined(USE_AVX2)
+    constexpr int numRegi = 4;
+    constexpr int order[numRegi] = {0, 2, 1, 3};
+#endif
+
+    __m128i regi[numRegi];
+    for (int i = 0; i < INPUT_BUCKETS * NUM_INPUTS * L1_SIZE / numChunks; i += numRegi) {
+        for (int j = 0; j < numRegi; ++j)
+            regi[j] = weight[i + j];
+        for (int j = 0; j < numRegi; ++j)
+            weight[i + j] = regi[order[j]];
+    }
+
+    for (int i = 0; i < THREAT_INPUTS * L1_SIZE / numChunks; i += numRegi) {
+        for (int j = 0; j < numRegi; ++j)
+            regi[j] = threatWeight[i + j];
+        for (int j = 0; j < numRegi; ++j)
+            threatWeight[i + j] = regi[order[j]];
+    }
+
+    for (int i = 0; i < L1_SIZE / numChunks; i += numRegi) {
+        for (int j = 0; j < numRegi; ++j)
+            regi[j] = biases[i + j];
+        for (int j = 0; j < numRegi; ++j)
+            biases[i + j] = regi[order[j]];
+    }
+#endif
+
+    for (int bucket = 0; bucket < OUTPUT_BUCKETS; ++bucket) {
+#if defined(USE_SIMD)
+        for (int i = 0; i < L1_SIZE / L1_CHUNK_PER_32; ++i)
+            for (int j = 0; j < L2_SIZE; ++j)
+                for (int k = 0; k < L1_CHUNK_PER_32; ++k) {
+                    const int output = i * L1_CHUNK_PER_32 + k;
+                    const int source = nnzPermutation[output % (L1_SIZE / 2)]
+                                     + output / (L1_SIZE / 2) * (L1_SIZE / 2);
+                    permutedNet.L1Weights[bucket][i * L1_CHUNK_PER_32 * L2_SIZE
+                                                  + j * L1_CHUNK_PER_32 + k]
+                        = quantisedNet.L1Weights[source][bucket][j];
+                }
+#else
+        for (int i = 0; i < L1_SIZE; ++i) {
+            const int source = nnzPermutation[i % (L1_SIZE / 2)]
+                             + i / (L1_SIZE / 2) * (L1_SIZE / 2);
+            for (int j = 0; j < L2_SIZE; ++j)
+                permutedNet.L1Weights[bucket][j * L1_SIZE + i]
+                    = quantisedNet.L1Weights[source][bucket][j];
+        }
+#endif
+
+        for (int i = 0; i < L2_SIZE; ++i)
+            permutedNet.L1Biases[bucket][i] = quantisedNet.L1Biases[bucket][i];
+    }
+
+    for (int bucket = 0; bucket < OUTPUT_BUCKETS; ++bucket)
+        for (int i = 0; i < EFFECTIVE_L2_SIZE; ++i)
+            for (int j = 0; j < L3_SIZE; ++j)
+                permutedNet.L2Weights[bucket][i * L3_SIZE + j]
+                    = quantisedNet.L2Weights[i][bucket][j];
+
+    for (int bucket = 0; bucket < OUTPUT_BUCKETS; ++bucket) {
+        for (int i = 0; i < L3_SIZE; ++i) {
+            permutedNet.L2Biases[bucket][i] = quantisedNet.L2Biases[bucket][i];
+            permutedNet.L3Weights[bucket][i] = quantisedNet.L3Weights[i][bucket];
+        }
+        permutedNet.L3Biases[bucket] = quantisedNet.L3Biases[bucket];
+    }
+}
+}
+
 void NNUE::init()
 {
-    net = reinterpret_cast<const Network *>(gEVALData);
+    const auto& quantisedNet = *reinterpret_cast<const QuantisedNetwork *>(gEVALData);
+    permuteTransposeNetwork(quantisedNet);
+    net = &permutedNet;
 
     for (int square = 0; square < 64; ++square)
     {

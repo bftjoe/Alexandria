@@ -38,9 +38,9 @@ jobs:
 
       - name: Install Android NDK
         run: |
-          wget -q https://dl.google.com/android/repository/android-ndk-r26d-linux.zip
-          unzip -q android-ndk-r26d-linux.zip
-          echo "ANDROID_NDK_HOME=$PWD/android-ndk-r26d" >> $GITHUB_ENV
+          wget -q https://dl.google.com/android/repository/android-ndk-r29-linux.zip
+          unzip -q android-ndk-r29-linux.zip
+          echo "ANDROID_NDK_HOME=$PWD/android-ndk-r29" >> $GITHUB_ENV
 
       - name: Download network
         run: |
@@ -51,28 +51,12 @@ jobs:
           sed -i 's/-march=native -E -dM -/-E -dM -/' makefile
           git diff --stat makefile
 
-      - name: Patch nnue.h for constexpr round
-        run: |
-          sed -i '/#pragma once/a constexpr double constexpr_round(double x) { return x >= 0.0 ? (double)(long long)(x + 0.5) : (double)(long long)(x - 0.5); }' src/nnue.h
-          sed -i 's/std::round(/constexpr_round(/g' src/nnue.h
-          grep -n constexpr_round src/nnue.h
-
-      - name: Build host preprocess tool
-        run: |
-          cd tools
-          g++ -funroll-loops -O3 -fno-exceptions -std=c++2b -DNDEBUG -o preprocess preprocess.cpp -pthread
-          cd ..
-
-      - name: Preprocess network
-        run: |
-          ./tools/preprocess nn.net processed.net
-
       - name: Build Alexandria (ARM64 v8-A)
         run: |
           make build=arm64 \
                CXX=$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android28-clang++ \
                NATIVE="-march=armv8-a" \
-               CXXFLAGS="-funroll-loops -O3 -fno-exceptions -std=c++2b -DNDEBUG -DEVALFILE=\\\"processed.net\\\" --target=aarch64-linux-android28 -static-libstdc++" \
+               CXXFLAGS="-funroll-loops -O3 -fno-exceptions -std=c++2c -DNDEBUG --target=aarch64-linux-android28 -static-libstdc++" \
                Alexandria
           mv Alexandria Alexandria-${{ env.VERSION }}-android-arm64-v8a
 
@@ -82,7 +66,7 @@ jobs:
           make build=arm64 \
                CXX=$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android28-clang++ \
                NATIVE="-march=armv8.2-a+dotprod" \
-               CXXFLAGS="-funroll-loops -O3 -fno-exceptions -std=c++2b -DNDEBUG -DEVALFILE=\\\"processed.net\\\" --target=aarch64-linux-android28 -static-libstdc++" \
+               CXXFLAGS="-funroll-loops -O3 -fno-exceptions -std=c++2c -DNDEBUG --target=aarch64-linux-android28 -static-libstdc++" \
                Alexandria
           mv Alexandria Alexandria-${{ env.VERSION }}-android-arm64-dotprod
 

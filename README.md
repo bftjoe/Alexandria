@@ -5,6 +5,7 @@ $ git clone https://github.com/PGG106/Alexandria
 $ cd alexandria
 ```
 Download the latest neural network for Alexandria from this [repository](https://github.com/PGG106/Alexandria-networks/releases) and save it in the source root as `nn.net`.
+Building requires a C++26-compatible compiler with `#embed` support (GCC 15+ or Clang 19+).
 ```bash
 $ make 
 $ ./Alexandria

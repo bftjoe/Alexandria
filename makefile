@@ -1,11 +1,6 @@
-_THIS       := $(realpath $(dir $(abspath $(lastword $(MAKEFILE_LIST)))))
-_ROOT       := $(_THIS)
-EVALFILE     = nn.net
-EVALFILE_PROCESSED = processed.net
 CXX         := g++
-TARGET      := Alexandria
 WARNINGS     = -Wall -Wcast-qual -Wextra -Wshadow -Wdouble-promotion -Wformat=2 -Wnull-dereference -Wlogical-op -Wold-style-cast -Wundef -pedantic
-CXXFLAGS    := -funroll-loops -O3 -flto -flto-partition=one -fno-exceptions -std=c++23 -DNDEBUG $(WARNINGS)
+CXXFLAGS    := -funroll-loops -O3 -flto -flto-partition=one -fno-exceptions -std=c++2c -DNDEBUG $(WARNINGS)
 NATIVE       = -march=native
 AVX2FLAGS    = -DUSE_AVX2 -DUSE_SIMD -mavx2 -mbmi -mfma
 BMI2FLAGS    = -DUSE_AVX2 -DUSE_SIMD -DUSE_PEXT -mavx2 -mbmi -mbmi2 -mfma
@@ -14,22 +9,9 @@ AVX512FLAGS  = -DUSE_AVX512 -DUSE_SIMD -DUSE_PEXT -mavx512f -mavx512bw -mfma
 # engine name
 NAME        := Alexandria
 
-TMPDIR = .tmp
-
 # Detect Clang
 ifeq ($(CXX), clang++)
-CXXFLAGS = -funroll-loops -O3 -flto -fuse-ld=lld -fno-exceptions -std=c++23 -DNDEBUG
-endif
-
-# Detect Windows
-ifeq ($(OS), Windows_NT)
-	MKDIR   := mkdir
-else
-ifeq ($(COMP), MINGW)
-	MKDIR   := mkdir
-else
-	MKDIR   := mkdir -p
-endif
+CXXFLAGS = -funroll-loops -O3 -flto -fuse-ld=lld -fno-exceptions -std=c++2c -DNDEBUG
 endif
 
 # Detect Windows
@@ -111,7 +93,7 @@ ifeq ($(build), x86-64-avx512)
 endif
 
 ifeq ($(build), debug)
-	CXXFLAGS = -O3 -g3 -fno-omit-frame-pointer -std=gnu++2a
+	CXXFLAGS = -O3 -g3 -fno-omit-frame-pointer -std=gnu++2c
 	NATIVE   = -march=native
 	FLAGS    = -lpthread -lstdc++
 	CXXFLAGS += $(FLAGS_DETECTED)
@@ -119,47 +101,24 @@ endif
 
 # valgrind doesn't like avx512 code
 ifeq ($(build), debug-avx2)
-	CXXFLAGS = -O3 -g3 -fno-omit-frame-pointer -std=gnu++2a -fsanitize=address -fsanitize=leak -fsanitize=undefined
+	CXXFLAGS = -O3 -g3 -fno-omit-frame-pointer -std=gnu++2c -fsanitize=address -fsanitize=leak -fsanitize=undefined
 	NATIVE   = -msse -msse3 -mpopcnt
 	FLAGS    = -lpthread -lstdc++
 	CXXFLAGS += $(AVX2FLAGS)
 endif
 
 
-# Add network name and Evalfile
-CXXFLAGS += -DEVALFILE=\"$(EVALFILE_PROCESSED)\"
-
 SOURCES := $(wildcard src/*.cpp)
-OBJECTS := $(patsubst %.cpp,$(TMPDIR)/%.o,$(SOURCES))
-DEPENDS := $(patsubst %.cpp,$(TMPDIR)/%.d,$(SOURCES))
+HEADERS := $(wildcard src/*.h src/*/*.h)
 EXE	    := $(NAME)$(SUFFIX)
 
 .PHONY:	all
 .DEFAULT_GOAL := all
 
-# Process the network file
-$(EVALFILE_PROCESSED): $(EVALFILE)
-	$(info Processing network $(EVALFILE) -> $(EVALFILE_PROCESSED))
-	$(MAKE) -C $(_ROOT)/tools CXXFLAGS="$(CXXFLAGS)" NATIVE="$(NATIVE)"
-	./tools/preprocess$(SUFFIX) $(EVALFILE) $(EVALFILE_PROCESSED)
+all: $(EXE)
 
-.NOTPARALLEL: $(EVALFILE_PROCESSED)
-
-net: $(EVALFILE_PROCESSED)
-
-all: $(EVALFILE_PROCESSED) $(TARGET)
-
-$(TARGET): $(EVALFILE_PROCESSED) $(OBJECTS)
-	$(CXX) $(CXXFLAGS) $(NATIVE) -MMD -MP -o $(EXE) $(OBJECTS) $(FLAGS)
-
-$(TMPDIR)/%.o: %.cpp | $(TMPDIR)
-	$(CXX) $(CXXFLAGS) $(NATIVE) -MMD -MP -c $< -o $@ $(FLAGS)
-
-$(TMPDIR):
-	$(MKDIR) "$(TMPDIR)" "$(TMPDIR)/src"
+$(EXE): nn.net $(SOURCES) $(HEADERS)
+	$(CXX) $(CXXFLAGS) $(NATIVE) -o $@ $(SOURCES) $(FLAGS)
 
 clean:
-	@rm -rf $(TMPDIR) *.o $(DEPENDS) *.d $(EVALFILE_PROCESSED)
-	$(MAKE) -C tools clean
-
--include $(DEPENDS)
+	@rm -rf .tmp *.o *.d
